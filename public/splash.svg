@@ -1,0 +1,25 @@
+<svg width="400" height="800" viewBox="0 0 400 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="400" height="800" fill="url(#gradient0_linear_1_1)"/>
+<circle cx="200" cy="200" r="80" fill="url(#gradient1_linear_1_1)"/>
+<rect x="120" y="120" width="40" height="40" rx="8" fill="#1d4ed8"/>
+<rect x="200" y="120" width="40" height="40" rx="8" fill="#ef4444"/>
+<rect x="280" y="120" width="40" height="40" rx="8" fill="#1d4ed8"/>
+<rect x="120" y="200" width="40" height="40" rx="8" fill="#ef4444"/>
+<rect x="200" y="200" width="40" height="40" rx="8" fill="#1d4ed8"/>
+<rect x="280" y="200" width="40" height="40" rx="8" fill="#ef4444"/>
+<rect x="120" y="280" width="40" height="40" rx="8" fill="#1d4ed8"/>
+<rect x="200" y="280" width="40" height="40" rx="8" fill="#ef4444"/>
+<rect x="280" y="280" width="40" height="40" rx="8" fill="#1d4ed8"/>
+<text x="200" y="450" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="bold">TicTacToe Pro</text>
+<text x="200" y="500" text-anchor="middle" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="24">Strategic XO with Multipliers</text>
+<defs>
+<linearGradient id="gradient0_linear_1_1" x1="0" y1="0" x2="400" y2="800" gradientUnits="userSpaceOnUse">
+<stop stop-color="#1e3a8a"/>
+<stop offset="1" stop-color="#0f172a"/>
+</linearGradient>
+<linearGradient id="gradient1_linear_1_1" x1="120" y1="120" x2="280" y2="280" gradientUnits="userSpaceOnUse">
+<stop stop-color="#ffffff" stop-opacity="0.1"/>
+<stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+</linearGradient>
+</defs>
+</svg>

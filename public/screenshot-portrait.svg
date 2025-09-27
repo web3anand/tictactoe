@@ -1,0 +1,53 @@
+<svg width="300" height="600" viewBox="0 0 300 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="300" height="600" fill="url(#gradient0_linear_1_1)"/>
+<rect x="50" y="50" width="200" height="200" rx="16" fill="url(#gradient1_linear_1_1)"/>
+<rect x="70" y="70" width="40" height="40" rx="6" fill="#1d4ed8"/>
+<rect x="130" y="70" width="40" height="40" rx="6" fill="#ef4444"/>
+<rect x="190" y="70" width="40" height="40" rx="6" fill="#1d4ed8"/>
+<rect x="70" y="130" width="40" height="40" rx="6" fill="#ef4444"/>
+<rect x="130" y="130" width="40" height="40" rx="6" fill="#1d4ed8"/>
+<rect x="190" y="130" width="40" height="40" rx="6" fill="#ef4444"/>
+<rect x="70" y="190" width="40" height="40" rx="6" fill="#1d4ed8"/>
+<rect x="130" y="190" width="40" height="40" rx="6" fill="#ef4444"/>
+<rect x="190" y="190" width="40" height="40" rx="6" fill="#1d4ed8"/>
+<rect x="20" y="300" width="260" height="60" rx="12" fill="url(#gradient2_linear_1_1)"/>
+<text x="150" y="340" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">1,250 Points</text>
+<rect x="20" y="380" width="80" height="40" rx="8" fill="#8b5cf6"/>
+<text x="60" y="405" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">2.5x Multiplier</text>
+<rect x="110" y="380" width="80" height="40" rx="8" fill="#ef4444"/>
+<text x="150" y="405" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">3 Streak</text>
+<rect x="200" y="380" width="80" height="40" rx="8" fill="#10b981"/>
+<text x="240" y="405" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">85% Win Rate</text>
+<rect x="20" y="450" width="260" height="100" rx="12" fill="url(#gradient3_linear_1_1)"/>
+<text x="150" y="480" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Leaderboard</text>
+<rect x="30" y="500" width="240" height="30" rx="6" fill="url(#gradient4_linear_1_1)"/>
+<text x="40" y="520" fill="white" font-family="Arial, sans-serif" font-size="12">1. PlayerName - 2,500 pts</text>
+<rect x="30" y="535" width="240" height="30" rx="6" fill="url(#gradient5_linear_1_1)"/>
+<text x="40" y="555" fill="white" font-family="Arial, sans-serif" font-size="12">2. You - 1,250 pts</text>
+<defs>
+<linearGradient id="gradient0_linear_1_1" x1="0" y1="0" x2="300" y2="600" gradientUnits="userSpaceOnUse">
+<stop stop-color="#1e3a8a"/>
+<stop offset="1" stop-color="#0f172a"/>
+</linearGradient>
+<linearGradient id="gradient1_linear_1_1" x1="50" y1="50" x2="250" y2="250" gradientUnits="userSpaceOnUse">
+<stop stop-color="#ffffff" stop-opacity="0.1"/>
+<stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+</linearGradient>
+<linearGradient id="gradient2_linear_1_1" x1="20" y1="300" x2="280" y2="360" gradientUnits="userSpaceOnUse">
+<stop stop-color="#f59e0b"/>
+<stop offset="1" stop-color="#f97316"/>
+</linearGradient>
+<linearGradient id="gradient3_linear_1_1" x1="20" y1="450" x2="280" y2="550" gradientUnits="userSpaceOnUse">
+<stop stop-color="#ffffff" stop-opacity="0.1"/>
+<stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+</linearGradient>
+<linearGradient id="gradient4_linear_1_1" x1="30" y1="500" x2="270" y2="530" gradientUnits="userSpaceOnUse">
+<stop stop-color="#fbbf24"/>
+<stop offset="1" stop-color="#f59e0b"/>
+</linearGradient>
+<linearGradient id="gradient5_linear_1_1" x1="30" y1="535" x2="270" y2="565" gradientUnits="userSpaceOnUse">
+<stop stop-color="#ffffff" stop-opacity="0.1"/>
+<stop offset="1" stop-color="#ffffff" stop-opacity="0.05"/>
+</linearGradient>
+</defs>
+</svg>
