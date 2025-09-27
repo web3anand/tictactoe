@@ -1,4 +1,4 @@
-const ROOT_URL = process.env.NEXT_PUBLIC_ROOT_URL || 'https://tictactoe-3adx00rv2-web3anands-projects.vercel.app';
+const ROOT_URL = process.env.NEXT_PUBLIC_ROOT_URL || 'https://tictactoe-three-eta.vercel.app/';
 
 export const minikitConfig = {
   accountAssociation: {
