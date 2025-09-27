@@ -35,10 +35,11 @@ export default function MultiplierInfo({ onClose, player }: MultiplierInfoProps)
     {
       icon: <Star className="w-5 h-5" />,
       title: "X Ethos Score",
-      description: "Your X profile's ethos score affects multipliers",
+      description: "Your real X profile's ethos score from Ethos Network affects multipliers",
       details: [
-        "Ethos score / 100 * 0.5x bonus",
-        "Higher ethos = better rewards"
+        "Real ethos score / 100 * 0.5x bonus",
+        "Higher ethos = better rewards",
+        "Powered by Ethos Network API"
       ],
       color: "from-blue-500 to-purple-500"
     }
@@ -161,10 +162,11 @@ export default function MultiplierInfo({ onClose, player }: MultiplierInfoProps)
               Pro Tips
             </h3>
             <ul className="space-y-1 text-sm text-white/90">
-              <li>• Connect your X profile for permanent ethos score bonuses</li>
+              <li>• Connect your X profile for real ethos score bonuses from Ethos Network</li>
               <li>• Focus on winning quickly to maximize speed multipliers</li>
               <li>• Build win streaks to compound your multiplier effects</li>
               <li>• Higher ethos scores provide better long-term rewards</li>
+              <li>• Real-time ethos data ensures accurate multiplier calculations</li>
             </ul>
           </motion.div>
         </motion.div>

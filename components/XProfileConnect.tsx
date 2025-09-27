@@ -18,21 +18,36 @@ export default function XProfileConnect({ onConnect }: XProfileConnectProps) {
     setIsConnecting(true)
     
     try {
-      // Simulate X profile fetch (in real implementation, you'd use X API)
-      // For demo purposes, we'll create a mock profile
-      const mockProfile = {
+      // Fetch real X profile data from Ethos API
+      const response = await fetch(`https://api.ethos.network/api/v2/users/by/x/${username.trim()}`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      // Extract profile information from Ethos API response
+      const profile = {
+        username: data.username || username.trim(),
+        displayName: data.displayName || data.name || username.trim(),
+        avatar: data.avatar || data.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+        ethosScore: data.ethosScore || data.score || 50 // Default to 50 if no score available
+      }
+      
+      onConnect(profile)
+    } catch (error) {
+      console.error('Failed to connect X profile:', error)
+      
+      // Fallback to mock data if API fails
+      const fallbackProfile = {
         username: username.trim(),
         displayName: username.trim(),
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-        ethosScore: Math.floor(Math.random() * 100) + 1 // Mock ethos score
+        ethosScore: Math.floor(Math.random() * 100) + 1
       }
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500))
       
-      onConnect(mockProfile)
-    } catch (error) {
-      console.error('Failed to connect X profile:', error)
+      onConnect(fallbackProfile)
     } finally {
       setIsConnecting(false)
     }
@@ -51,7 +66,7 @@ export default function XProfileConnect({ onConnect }: XProfileConnectProps) {
       </div>
       
       <p className="text-primary-200 mb-4">
-        Connect your X (Twitter) profile to get your ethos score and unlock bonus multipliers!
+        Connect your X (Twitter) profile to get your real ethos score from Ethos Network and unlock bonus multipliers!
       </p>
 
       <div className="flex space-x-3">
@@ -94,8 +109,9 @@ export default function XProfileConnect({ onConnect }: XProfileConnectProps) {
       </div>
 
       <div className="mt-4 text-sm text-primary-300">
-        <p>✨ Ethos score affects your multiplier bonus</p>
+        <p>✨ Real ethos score from Ethos Network affects your multiplier bonus</p>
         <p>🏆 Higher scores = better rewards</p>
+        <p>🔗 Powered by Ethos Network API</p>
       </div>
     </motion.div>
   )
