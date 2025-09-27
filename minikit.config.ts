@@ -7,9 +7,9 @@ export const minikitConfig = {
     "signature": ""
   },
   baseBuilder: {
-    allowedAddresses: []
+    allowedAddresses: [""]
   },
-  frame: {
+  miniapp: {
     version: "1",
     name: "TicTacToe Pro",
     homeUrl: ROOT_URL,

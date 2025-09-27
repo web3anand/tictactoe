@@ -5,28 +5,28 @@
     "signature": ""
   },
   "baseBuilder": {
-    "allowedAddresses": []
+    "allowedAddresses": [""]
   },
-  "frame": {
+  "miniapp": {
     "version": "1",
     "name": "TicTacToe Pro",
-    "homeUrl": "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app",
-    "iconUrl": "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app/icon.svg",
-    "splashImageUrl": "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app/splash.svg",
+    "homeUrl": "https://tictactoe-three-eta.vercel.app",
+    "iconUrl": "https://tictactoe-three-eta.vercel.app/icon.svg",
+    "splashImageUrl": "https://tictactoe-three-eta.vercel.app/splash.svg",
     "splashBackgroundColor": "#1e3a8a",
-    "webhookUrl": "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app/api/webhook",
+    "webhookUrl": "https://tictactoe-three-eta.vercel.app/api/webhook",
     "subtitle": "Strategic XO with Multipliers",
     "description": "Play Tic Tac Toe with multiplier mechanics, earn points, and climb the leaderboard. Connect your X profile to get your ethos score!",
     "screenshotUrls": [
-      "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app/screenshot-portrait.svg"
+      "https://tictactoe-three-eta.vercel.app/screenshot-portrait.svg"
     ],
     "primaryCategory": "games",
     "tags": ["gaming", "strategy", "multiplayer", "leaderboard", "points"],
-    "heroImageUrl": "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app/hero.svg",
+    "heroImageUrl": "https://tictactoe-three-eta.vercel.app/hero.svg",
     "tagline": "Master the grid, multiply your score!",
     "ogTitle": "TicTacToe Pro - Strategic XO with Multipliers",
     "ogDescription": "Play Tic Tac Toe with multiplier mechanics, earn points, and climb the leaderboard. Connect your X profile to get your ethos score!",
-    "ogImageUrl": "https://tictactoe-3adx00rv2-web3anands-projects.vercel.app/og-image.svg",
+    "ogImageUrl": "https://tictactoe-three-eta.vercel.app/og-image.svg",
     "noindex": false
   }
 }

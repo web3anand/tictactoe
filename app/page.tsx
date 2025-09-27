@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, Star, Zap, Users, Twitter, Crown } from 'lucide-react'
+import { sdk } from '@farcaster/miniapp-sdk'
 import GameBoard from '@/components/GameBoard'
 import Leaderboard from '@/components/Leaderboard'
 import PointsDisplay from '@/components/PointsDisplay'
@@ -49,7 +50,7 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showMultiplierInfo, setShowMultiplierInfo] = useState(false)
 
-  // Load player data from localStorage
+  // Load player data from localStorage and initialize MiniApp SDK
   useEffect(() => {
     const savedPlayer = localStorage.getItem('tictactoe-player')
     if (savedPlayer) {
@@ -60,6 +61,17 @@ export default function Home() {
     if (savedLeaderboard) {
       setLeaderboard(JSON.parse(savedLeaderboard))
     }
+
+    // Initialize MiniApp SDK
+    const initSDK = async () => {
+      try {
+        await sdk.actions.ready()
+      } catch (error) {
+        console.log('MiniApp SDK not available:', error)
+      }
+    }
+    
+    initSDK()
   }, [])
 
   // Save player data to localStorage
