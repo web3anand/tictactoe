@@ -176,6 +176,17 @@ export default function Home() {
     })
   }
 
+  const logout = () => {
+    if (!player) return
+    
+    if (window.confirm('Are you sure you want to disconnect your X profile? This will remove your ethos score bonus.')) {
+      setPlayer({
+        ...player,
+        xProfile: undefined
+      })
+    }
+  }
+
   if (!player) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -242,10 +253,32 @@ export default function Home() {
             <div>
               <h1 className="text-2xl font-bold text-white">TicTacToe Pro</h1>
               <p className="text-primary-200">Welcome, {player.name}!</p>
+              {player.xProfile && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <img
+                    src={player.xProfile.avatar}
+                    alt={player.xProfile.displayName}
+                    className="w-5 h-5 rounded-full"
+                  />
+                  <span className="text-sm text-primary-300">
+                    @{player.xProfile.username} • Ethos: {player.xProfile.ethosScore}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
+            {player.xProfile && (
+              <button
+                onClick={logout}
+                className="flex items-center space-x-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 px-4 py-2 rounded-lg transition-all duration-300 text-red-300 hover:text-red-200"
+              >
+                <Twitter className="w-4 h-4" />
+                <span>Disconnect X</span>
+              </button>
+            )}
+            
             <button
               onClick={() => setShowLeaderboard(!showLeaderboard)}
               className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all duration-300"

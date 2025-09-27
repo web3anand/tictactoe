@@ -112,6 +112,7 @@ export default function XProfileConnect({ onConnect }: XProfileConnectProps) {
         <p>✨ Real ethos score from Ethos Network affects your multiplier bonus</p>
         <p>🏆 Higher scores = better rewards</p>
         <p>🔗 Powered by Ethos Network API</p>
+        <p>💡 You can disconnect anytime using the "Disconnect X" button</p>
       </div>
     </motion.div>
   )
