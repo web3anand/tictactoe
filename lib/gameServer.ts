@@ -36,6 +36,12 @@ export class GameServer {
   }
 
   private setupEventHandlers() {
+    // Early return if database is not configured
+    if (!supabaseAdmin) {
+      console.warn('⚠️  Supabase not configured - Socket.IO game server disabled')
+      return
+    }
+
     this.io.on('connection', (socket: ExtendedSocket) => {
       console.log(`👤 User connected: ${socket.id}`)
 
@@ -48,7 +54,7 @@ export class GameServer {
           }
           
           // Verify user exists in database
-          const { data: user } = await supabaseAdmin
+          const { data: user } = await supabaseAdmin!
             .from('users')
             .select('*')
             .eq('id', data.userId)
@@ -60,7 +66,7 @@ export class GameServer {
             this.userSockets.set(data.userId, socket)
             
             // Update user's last active time
-            await supabaseAdmin
+            await supabaseAdmin!
               .from('users')
               .update({ last_active: new Date().toISOString() })
               .eq('id', data.userId)
@@ -84,7 +90,12 @@ export class GameServer {
         }
 
         try {
-          const { data: game } = await supabaseAdmin
+          if (!supabaseAdmin) {
+            socket.emit('error', { message: 'Database not configured' })
+            return
+          }
+
+          const { data: game } = await supabaseAdmin!
             .from('games')
             .select('*')
             .eq('room_code', data.roomCode)
@@ -155,7 +166,7 @@ export class GameServer {
           }
 
           // Get current game state
-          const { data: game } = await supabaseAdmin
+          const { data: game } = await supabaseAdmin!
             .from('games')
             .select('*')
             .eq('id', socket.gameId)
@@ -221,7 +232,7 @@ export class GameServer {
           }
 
           // Update game in database
-          const { data: updatedGame } = await supabaseAdmin
+          const { data: updatedGame } = await supabaseAdmin!
             .from('games')
             .update(gameUpdate)
             .eq('id', socket.gameId)
@@ -229,7 +240,7 @@ export class GameServer {
             .single()
 
           // Record the move
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('game_moves')
             .insert({
               game_id: socket.gameId,
@@ -286,7 +297,7 @@ export class GameServer {
 
         try {
           // Get user stats for skill calculation
-          const { data: user } = await supabaseAdmin
+          const { data: user } = await supabaseAdmin!
             .from('users')
             .select('*')
             .eq('id', socket.userId)
@@ -300,7 +311,7 @@ export class GameServer {
           const skillLevel = this.calculateSkillLevel(user.total_points, user.games_played)
 
           // Add to matchmaking queue
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('matchmaking_queue')
             .insert({
               user_id: socket.userId,
@@ -325,7 +336,7 @@ export class GameServer {
         if (!socket.userId) return
 
         try {
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('matchmaking_queue')
             .delete()
             .eq('user_id', socket.userId)
@@ -346,7 +357,7 @@ export class GameServer {
           this.userSockets.delete(socket.userId)
 
           // Remove from matchmaking queue
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('matchmaking_queue')
             .delete()
             .eq('user_id', socket.userId)
@@ -370,7 +381,7 @@ export class GameServer {
           }
 
           // Update last active time
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('users')
             .update({ last_active: new Date().toISOString() })
             .eq('id', socket.userId)
@@ -385,7 +396,7 @@ export class GameServer {
       const skillRange = gameMode === 'quick' ? 1000 : 300
 
       // Find suitable opponent
-      const { data: opponents } = await supabaseAdmin
+      const { data: opponents } = await supabaseAdmin!
         .from('matchmaking_queue')
         .select('*')
         .neq('user_id', userId)
@@ -400,7 +411,7 @@ export class GameServer {
 
         // Create new game
         const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-        const { data: newGame } = await supabaseAdmin
+        const { data: newGame } = await supabaseAdmin!
           .from('games')
           .insert({
             room_code: roomCode,
@@ -417,7 +428,7 @@ export class GameServer {
 
         if (newGame) {
           // Remove both players from queue
-          await supabaseAdmin
+          await supabaseAdmin!
             .from('matchmaking_queue')
             .delete()
             .in('user_id', [userId, opponent.user_id])
@@ -520,7 +531,7 @@ export class GameServer {
   }
 
   private async updatePlayerStats(userId: string, won: boolean, pointsEarned: number): Promise<void> {
-    const { data: user } = await supabaseAdmin
+    const { data: user } = await supabaseAdmin!
       .from('users')
       .select('*')
       .eq('id', userId)
@@ -541,7 +552,7 @@ export class GameServer {
         : Math.max(user.multiplier_level - 0.05, 1.0)
     }
 
-    await supabaseAdmin
+    await supabaseAdmin!
       .from('users')
       .update(newStats)
       .eq('id', userId)
@@ -556,7 +567,7 @@ export class GameServer {
     // Clean up old matchmaking entries every 5 minutes
     setInterval(async () => {
       try {
-        await supabaseAdmin
+        await supabaseAdmin!
           .from('matchmaking_queue')
           .delete()
           .lt('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString()) // 10 minutes old
