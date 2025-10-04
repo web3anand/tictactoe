@@ -25,45 +25,7 @@ import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
 import SimpleWalletConnect from '@/components/SimpleWalletConnect'
 import { createBotPlayer, getBotMove } from '@/lib/bot-player'
-
-  interface Player {
-    id: string
-    name: string
-    points: number
-    gamesPlayed: number
-    gamesWon: number
-    difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
-    walletAddress?: string
-    xProfile?: {
-      username: string
-      displayName: string
-      avatar: string
-      ethosScore: number
-      verified?: boolean
-      source?: string
-    }
-    farcasterProfile?: {
-      fid: number
-      username: string
-      displayName: string
-      avatar: string
-      bio: string
-      followerCount: number
-      followingCount: number
-      verified?: boolean
-      source?: string
-    }
-  }
-
-export interface GameState {
-  board: (string | null)[]
-  currentPlayer: 'X' | 'O'
-  winner: string | null
-  gameOver: boolean
-  moves: number
-  multiplier: number
-  streak: number
-}
+import { Player, GameState } from '@/types/game'
 
 interface Game {
   id: string

@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Star, Zap, Trophy, Target } from 'lucide-react'
-import { Player } from '@/app/page'
+import { Player } from '@/types/game'
 
 interface PointsDisplayProps {
   player: Player
