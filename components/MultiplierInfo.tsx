@@ -2,7 +2,22 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Zap, Target, Clock, Star, TrendingUp } from 'lucide-react'
-import { Player } from '@/app/page'
+
+interface Player {
+  id: string
+  name: string
+  points: number
+  gamesPlayed: number
+  gamesWon: number
+  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
+  walletAddress?: string
+  xProfile?: {
+    username: string
+    displayName: string
+    avatar: string
+    ethosScore: number
+  }
+}
 
 interface MultiplierInfoProps {
   onClose: () => void
@@ -58,20 +73,20 @@ export default function MultiplierInfo({ onClose, player }: MultiplierInfoProps)
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
-          className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+          className="bg-white/10 backdrop-blur-sm rounded-xl p-4 max-w-sm w-full max-h-[85vh] overflow-y-auto mx-2"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center space-x-3">
-              <Zap className="w-8 h-8 text-yellow-400" />
-              <h2 className="text-2xl font-bold text-white">Multiplier System</h2>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center space-x-2">
+              <Zap className="w-6 h-6 text-yellow-400" />
+              <h2 className="text-lg font-bold text-white">Multiplier System</h2>
             </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors"
             >
-              <X className="w-6 h-6 text-white" />
+              <X className="w-5 h-5 text-white" />
             </button>
           </div>
 
@@ -80,32 +95,32 @@ export default function MultiplierInfo({ onClose, player }: MultiplierInfoProps)
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-r from-primary-500/20 to-primary-600/20 border border-primary-400/30 rounded-xl p-4 mb-6"
+              className="bg-gradient-to-r from-primary-500/20 to-primary-600/20 border border-primary-400/30 rounded-lg p-3 mb-4"
             >
-              <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
-                <TrendingUp className="w-5 h-5 mr-2" />
+              <h3 className="text-sm font-semibold text-white mb-2 flex items-center">
+                <TrendingUp className="w-4 h-4 mr-1" />
                 Your Current Stats
               </h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <span className="text-primary-300">Games Played:</span>
-                  <span className="text-white font-semibold ml-2">{player.gamesPlayed}</span>
+                  <span className="text-primary-300">Games:</span>
+                  <span className="text-white font-semibold ml-1">{player.gamesPlayed}</span>
                 </div>
                 <div>
                   <span className="text-primary-300">Win Rate:</span>
-                  <span className="text-white font-semibold ml-2">
+                  <span className="text-white font-semibold ml-1">
                     {player.gamesPlayed > 0 ? ((player.gamesWon / player.gamesPlayed) * 100).toFixed(1) : 0}%
                   </span>
                 </div>
                 {player.xProfile && (
                   <>
                     <div>
-                      <span className="text-primary-300">X Ethos Score:</span>
-                      <span className="text-white font-semibold ml-2">{player.xProfile.ethosScore}</span>
+                      <span className="text-primary-300">Ethos:</span>
+                      <span className="text-white font-semibold ml-1">{player.xProfile.ethosScore}</span>
                     </div>
                     <div>
-                      <span className="text-primary-300">Ethos Bonus:</span>
-                      <span className="text-white font-semibold ml-2">
+                      <span className="text-primary-300">Bonus:</span>
+                      <span className="text-white font-semibold ml-1">
                         +{((player.xProfile.ethosScore / 100) * 0.5).toFixed(1)}x
                       </span>
                     </div>
@@ -116,30 +131,30 @@ export default function MultiplierInfo({ onClose, player }: MultiplierInfoProps)
           )}
 
           {/* Multiplier Factors */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {multiplierFactors.map((factor, index) => (
               <motion.div
                 key={index}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className={`bg-gradient-to-r ${factor.color}/20 border border-white/10 rounded-xl p-4`}
+                className={`bg-gradient-to-r ${factor.color}/20 border border-white/10 rounded-lg p-3`}
               >
-                <div className="flex items-start space-x-3">
+                <div className="flex items-start space-x-2">
                   <div className="text-white mt-1">
                     {factor.icon}
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-white mb-1">
+                    <h3 className="text-sm font-semibold text-white mb-1">
                       {factor.title}
                     </h3>
-                    <p className="text-primary-200 mb-3">
+                    <p className="text-primary-200 text-xs mb-2">
                       {factor.description}
                     </p>
                     <ul className="space-y-1">
                       {factor.details.map((detail, detailIndex) => (
-                        <li key={detailIndex} className="text-sm text-white/80 flex items-center">
-                          <span className="w-2 h-2 bg-white/40 rounded-full mr-2"></span>
+                        <li key={detailIndex} className="text-xs text-white/80 flex items-center">
+                          <span className="w-1.5 h-1.5 bg-white/40 rounded-full mr-2"></span>
                           {detail}
                         </li>
                       ))}
@@ -155,13 +170,13 @@ export default function MultiplierInfo({ onClose, player }: MultiplierInfoProps)
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="mt-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/30 rounded-xl p-4"
+            className="mt-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/30 rounded-lg p-3"
           >
-            <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
-              <Star className="w-5 h-5 mr-2" />
+            <h3 className="text-sm font-semibold text-white mb-2 flex items-center">
+              <Star className="w-4 h-4 mr-1" />
               Pro Tips
             </h3>
-            <ul className="space-y-1 text-sm text-white/90">
+            <ul className="space-y-1 text-xs text-white/90">
               <li>• Connect your X profile for real ethos score bonuses from Ethos Network</li>
               <li>• Focus on winning quickly to maximize speed multipliers</li>
               <li>• Build win streaks to compound your multiplier effects</li>

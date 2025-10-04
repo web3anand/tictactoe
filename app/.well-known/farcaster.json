@@ -7,26 +7,69 @@
   "baseBuilder": {
     "allowedAddresses": [""]
   },
+  "frame": {
+    "version": "next",
+    "imageUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/frame-image.png",
+    "button": {
+      "title": "Play TicTacToe Pro",
+      "action": {
+        "type": "launch_frame",
+        "name": "TicTacToe Pro",
+        "url": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app",
+        "splashImageUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/splash.svg",
+        "splashBackgroundColor": "#0052ff"
+      }
+    }
+  },
+  "castActions": [
+    {
+      "name": "Challenge to TicTacToe",
+      "icon": "game",
+      "description": "Challenge someone to a strategic TicTacToe match!",
+      "aboutUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/about",
+      "action": {
+        "type": "post"
+      }
+    }
+  ],
   "miniapp": {
-    "version": "1",
+    "version": "2.0",
     "name": "TicTacToe Pro",
     "homeUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app",
     "iconUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/icon.svg",
     "splashImageUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/splash.svg",
-    "splashBackgroundColor": "#1e3a8a",
+    "splashBackgroundColor": "#0052ff",
     "webhookUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/api/webhook",
-    "subtitle": "Strategic XO with Multipliers",
-    "description": "Play Tic Tac Toe with multiplier mechanics, earn points, and climb the leaderboard. Connect your X profile to get your ethos score!",
+    "subtitle": "Strategic XO with Blockchain Rewards",
+    "description": "Play multiplayer TicTacToe with real-time matchmaking, blockchain rewards, and verified leaderboards. Every game result is recorded on Base for complete transparency!",
     "screenshotUrls": [
-      "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/screenshot-portrait.svg"
+      "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/screenshot-portrait.svg",
+      "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/screenshot-landscape.svg"
     ],
     "primaryCategory": "games",
-    "tags": ["gaming", "strategy", "multiplayer", "leaderboard", "points"],
+    "tags": ["gaming", "strategy", "multiplayer", "blockchain", "base", "onchain", "leaderboard"],
     "heroImageUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/hero.svg",
-    "tagline": "Master the grid, multiply your score!",
-    "ogTitle": "TicTacToe Pro - Strategic XO with Multipliers",
-    "ogDescription": "Play Tic Tac Toe with multiplier mechanics, earn points, and climb the leaderboard. Connect your X profile to get your ethos score!",
+    "tagline": "Master the grid, earn onchain rewards!",
+    "ogTitle": "TicTacToe Pro - Onchain Gaming on Base",
+    "ogDescription": "Experience the future of gaming with blockchain-verified results, real-time multiplayer, and transparent leaderboards on Base.",
     "ogImageUrl": "https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app/og-image.svg",
-    "noindex": false
+    "noindex": false,
+    "features": {
+      "realTimeMultiplayer": true,
+      "blockchainIntegration": true,
+      "socialFeatures": true,
+      "achievements": true,
+      "leaderboards": true,
+      "notifications": true
+    },
+    "payments": {
+      "enabled": true,
+      "currency": "USD",
+      "methods": ["coinbase", "wallet"]
+    },
+    "analytics": {
+      "enabled": true,
+      "events": ["game_start", "game_end", "match_found", "payment_complete"]
+    }
   }
 }

@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  walletAddress String?   @unique
+  name          String
+  xProfile      Json?     // Store X profile data as JSON
+  points        Int       @default(0)
+  gamesPlayed   Int       @default(0)
+  gamesWon      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  gamesAsPlayer1 Game[] @relation("Player1")
+  gamesAsPlayer2 Game[] @relation("Player2")
+  moves          Move[]
+  leaderboard    Leaderboard?
+  
+  @@map("users")
+}
+
+model Game {
+  id          String      @id @default(cuid())
+  roomCode    String      @unique
+  player1Id   String
+  player2Id   String?
+  currentPlayer String    @default("X")
+  board       String      @default(",,,,,,,,,") // 9 cells as comma-separated values
+  winner      String?     // "X", "O", "Draw", or null
+  gameOver    Boolean     @default(false)
+  moves       Int         @default(0)
+  multiplier  Float       @default(1.0)
+  streak      Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  player1 User @relation("Player1", fields: [player1Id], references: [id])
+  player2 User? @relation("Player2", fields: [player2Id], references: [id])
+  gameMoves Move[]
+  
+  @@map("games")
+}
+
+model Move {
+  id        String   @id @default(cuid())
+  gameId    String
+  playerId  String
+  position  Int      // 0-8 for board positions
+  symbol    String   // "X" or "O"
+  createdAt DateTime @default(now())
+  
+  // Relations
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player User @relation(fields: [playerId], references: [id])
+  
+  @@map("moves")
+}
+
+model Leaderboard {
+  id        String   @id @default(cuid())
+  playerId  String   @unique
+  points    Int      @default(0)
+  rank      Int
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  player User @relation(fields: [playerId], references: [id])
+  
+  @@map("leaderboard")
+}

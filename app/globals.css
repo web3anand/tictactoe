@@ -3,41 +3,195 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+ 
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+ 
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+ 
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+ 
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+ 
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+ 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+ 
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+ 
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
   * {
-    @apply border-gray-300;
+    @apply border-gray-200;
   }
   body {
-    @apply bg-gradient-to-br from-primary-900 via-primary-800 to-secondary-900 text-white;
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 @layer components {
+  /* General Components */
+  .base-card {
+    @apply bg-neutral-light border border-neutral-medium rounded-lg p-4 transition-all duration-300 hover:bg-neutral hover:border-neutral-dark;
+  }
+  
+  .base-button {
+    @apply bg-brand text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .base-button-secondary {
+    @apply bg-neutral-light border border-neutral-medium text-brand px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-neutral hover:border-neutral-dark disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Game Specific Components */
+  .game-grid-container {
+    @apply grid mx-auto p-3 bg-neutral-light rounded-2xl border-2 border-neutral-medium shadow-xl;
+  }
+
+  .game-grid-6x6 {
+    grid-template-columns: repeat(6, 60px);
+    grid-template-rows: repeat(6, 60px);
+    gap: 4px;
+    width: 380px;
+    margin: 0 auto;
+  }
+
   .game-cell {
-    @apply w-20 h-20 border-2 border-primary-300 rounded-lg flex items-center justify-center text-4xl font-bold transition-all duration-300 hover:scale-105 hover:shadow-lg;
+    @apply relative bg-white border-2 border-neutral-medium rounded-lg flex items-center justify-center text-xl font-semibold transition-all duration-300;
+    width: 60px;
+    height: 60px;
   }
-  
-  .game-cell.x {
-    @apply text-blue-400 bg-blue-900/20 border-blue-400;
+
+  .game-cell-interactive {
+    @apply hover:scale-105 hover:bg-neutral-light hover:border-brand-light hover:shadow-lg;
   }
-  
-  .game-cell.o {
-    @apply text-red-400 bg-red-900/20 border-red-400;
+
+  .game-cell-disabled {
+    @apply opacity-50 cursor-not-allowed;
   }
-  
-  .game-cell.winning {
-    @apply animate-pulse bg-yellow-900/40 border-yellow-400;
+
+  .game-status-container {
+    @apply text-center mb-6 flex justify-center;
   }
-  
+
+  .game-status-card {
+    @apply rounded-xl p-3 shadow-lg w-[380px] border-2;
+  }
+
+  .game-status-winner {
+    @apply bg-accent-custom-light border-accent-custom-dark;
+  }
+
+  .game-status-current {
+    @apply bg-neutral-light border-neutral-medium;
+  }
+
   .multiplier-badge {
-    @apply absolute -top-2 -right-2 bg-yellow-500 text-black text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-bounce;
+    @apply absolute -top-2 -right-2 bg-accent-custom text-white text-xs font-semibold rounded-full w-6 h-6 flex items-center justify-center animate-bounce-slow;
   }
   
   .points-display {
-    @apply bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-4 py-2 rounded-full font-bold text-lg shadow-lg;
+    @apply bg-neutral-light border border-neutral-medium text-brand-dark px-4 py-2 rounded-lg font-semibold text-lg;
   }
   
   .leaderboard-item {
-    @apply bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-2 transition-all duration-300 hover:bg-white/20;
+    @apply bg-neutral-light border border-neutral-medium rounded-lg p-4 mb-2 transition-all duration-300 hover:bg-neutral hover:border-brand-light;
+  }
+
+  .error-card {
+    @apply bg-red-100 border-2 border-red-300 text-red-800 rounded-xl p-3 shadow-lg w-[380px] mx-auto;
+  }
+
+  /* Multiplayer Page Styles */
+  .room-code-container {
+    @apply w-[390px] h-14 bg-neutral-light border-2 border-neutral-medium rounded-xl flex items-center justify-between px-3 shadow-lg relative;
+  }
+
+  .player-stats-container {
+    @apply w-[380px] flex gap-2;
+  }
+
+  .player-card {
+    @apply w-[189px] h-14 rounded-xl p-3 shadow-lg relative overflow-hidden border-2;
+  }
+
+  .player-card-1 {
+    @apply bg-blue-100 border-blue-200;
+  }
+
+  .player-card-2 {
+    @apply bg-pink-100 border-pink-200;
+  }
+
+  .player-symbol {
+    @apply w-8 h-8 rounded-full flex items-center justify-center text-white font-bold;
+  }
+
+  .player-symbol-x {
+    @apply bg-brand;
+  }
+
+  .player-symbol-o {
+    @apply bg-accent-custom;
+  }
+
+  .player-status-dot {
+    @apply w-2.5 h-2.5 rounded-full;
+  }
+
+  .player-status-active {
+    @apply bg-green-400;
+  }
+
+  .player-status-waiting {
+    @apply bg-yellow-400;
   }
 }

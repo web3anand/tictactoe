@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import React from 'react'
 import './globals.css'
+import WalletProvider from '@/components/WalletProvider'
+import { ThemeProvider } from "@/components/ThemeProvider"
+import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -25,17 +28,34 @@ export const metadata: Metadata = {
   }
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-secondary-900">
-          {children}
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} overflow-x-hidden`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <WalletProvider>
+            <div className="min-h-screen">
+              <ThemeSwitcher />
+              {children}
+            </div>
+          </WalletProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

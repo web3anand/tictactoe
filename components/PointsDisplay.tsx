@@ -17,46 +17,46 @@ export default function PointsDisplay({ player, currentMultiplier, streak }: Poi
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
+      className="grid grid-cols-2 gap-2 mb-4"
     >
       {/* Total Points */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-4 text-center"
+        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
       >
-        <Star className="w-6 h-6 mx-auto mb-2 text-black" />
-        <div className="text-2xl font-bold text-black">{player.points.toLocaleString()}</div>
-        <div className="text-sm text-black/80">Total Points</div>
+        <Star className="w-4 h-4 mx-auto mb-1 text-yellow-500" />
+        <div className="text-sm font-bold text-foreground">{player.points.toLocaleString()}</div>
+        <div className="text-xs text-muted-foreground">Points</div>
       </motion.div>
 
       {/* Current Multiplier */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 text-center"
+        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
       >
-        <Zap className="w-6 h-6 mx-auto mb-2 text-white" />
-        <div className="text-2xl font-bold text-white">{currentMultiplier}x</div>
-        <div className="text-sm text-white/80">Current Multiplier</div>
+        <Zap className="w-4 h-4 mx-auto mb-1 text-purple-500" />
+        <div className="text-sm font-bold text-foreground">{currentMultiplier}x</div>
+        <div className="text-xs text-muted-foreground">Multiplier</div>
       </motion.div>
 
       {/* Win Streak */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-gradient-to-r from-red-500 to-pink-500 rounded-xl p-4 text-center"
+        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
       >
-        <Target className="w-6 h-6 mx-auto mb-2 text-white" />
-        <div className="text-2xl font-bold text-white">{streak}</div>
-        <div className="text-sm text-white/80">Win Streak</div>
+        <Target className="w-4 h-4 mx-auto mb-1 text-red-500" />
+        <div className="text-sm font-bold text-foreground">{streak}</div>
+        <div className="text-xs text-muted-foreground">Streak</div>
       </motion.div>
 
       {/* Win Rate */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-gradient-to-r from-green-500 to-teal-500 rounded-xl p-4 text-center"
+        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
       >
-        <Trophy className="w-6 h-6 mx-auto mb-2 text-white" />
-        <div className="text-2xl font-bold text-white">{winRate.toFixed(1)}%</div>
-        <div className="text-sm text-white/80">Win Rate</div>
+        <Trophy className="w-4 h-4 mx-auto mb-1 text-green-500" />
+        <div className="text-sm font-bold text-foreground">{winRate.toFixed(1)}%</div>
+        <div className="text-xs text-muted-foreground">Win Rate</div>
       </motion.div>
     </motion.div>
   )
