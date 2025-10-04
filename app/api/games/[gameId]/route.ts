@@ -9,6 +9,10 @@ export async function GET(
   try {
     const gameId = params.gameId
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
     // Try to find by gameId first, then by roomCode
     let { data: game, error } = await supabaseAdmin
       .from('games')
@@ -78,8 +82,16 @@ export async function PUT(
     const roomCode = params.gameId
     const { player2 } = await request.json()
 
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+
     if (!player2 || !player2.wallet_address) {
       return NextResponse.json({ error: 'Player data required' }, { status: 400 })
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
 
     // Find the game by room code
