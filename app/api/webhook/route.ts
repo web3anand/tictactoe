@@ -50,6 +50,12 @@ function verifyWebhookSignature(body: string, signature: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // Early return if database is not configured
+    if (!supabaseAdmin) {
+      console.warn('⚠️  Database not configured - webhook events will be logged but not persisted')
+      return NextResponse.json({ success: true, message: 'Webhook received (database not configured)' })
+    }
+
     const body = await request.text()
     const signature = request.headers.get('x-minikit-signature') || ''
     
@@ -101,8 +107,13 @@ async function handleUserJoined(event: WebhookEvent) {
   console.log('👤 User joined:', userData.username)
 
   try {
+    if (!supabaseAdmin) {
+      console.warn('Database not configured - skipping user creation')
+      return
+    }
+
     // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin
+    const { data: existingUser } = await supabaseAdmin!
       .from('users')
       .select('id')
       .eq('farcaster_fid', userData.fid)
@@ -110,7 +121,7 @@ async function handleUserJoined(event: WebhookEvent) {
 
     if (!existingUser) {
       // Create new user
-      const { data: newUser } = await supabaseAdmin
+      const { data: newUser } = await supabaseAdmin!
         .from('users')
         .insert({
           farcaster_fid: userData.fid,
@@ -125,7 +136,7 @@ async function handleUserJoined(event: WebhookEvent) {
 
       // Send welcome notification
       if (newUser) {
-        await supabaseAdmin
+        await supabaseAdmin!
           .from('notifications')
           .insert({
             user_id: newUser.id,
@@ -139,7 +150,7 @@ async function handleUserJoined(event: WebhookEvent) {
       console.log('✅ New user created:', newUser?.id)
     } else {
       // Update existing user activity
-      await supabaseAdmin
+      await supabaseAdmin!
         .from('users')
         .update({ 
           last_active: new Date().toISOString(),
@@ -164,7 +175,7 @@ async function handleUserLeft(event: WebhookEvent) {
 
   try {
     // Update user's last active time
-    await supabaseAdmin
+    await supabaseAdmin!
       .from('users')
       .update({ last_active: new Date().toISOString() })
       .eq('farcaster_fid', userData.fid)
@@ -181,7 +192,7 @@ async function handlePaymentCompleted(event: WebhookEvent) {
 
   try {
     // Find user by wallet address
-    const { data: user } = await supabaseAdmin
+    const { data: user } = await supabaseAdmin!
       .from('users')
       .select('*')
       .eq('wallet_address', paymentData.fromAddress)
@@ -191,7 +202,7 @@ async function handlePaymentCompleted(event: WebhookEvent) {
       // Award bonus points for payment
       const bonusPoints = parseInt(paymentData.amount) * 10 // 10 points per unit
       
-      await supabaseAdmin
+      await supabaseAdmin!
         .from('users')
         .update({
           total_points: user.total_points + bonusPoints
@@ -199,7 +210,7 @@ async function handlePaymentCompleted(event: WebhookEvent) {
         .eq('id', user.id)
 
       // Send notification
-      await supabaseAdmin
+      await supabaseAdmin!
         .from('notifications')
         .insert({
           user_id: user.id,
@@ -234,7 +245,7 @@ async function handleCastCreated(event: WebhookEvent) {
 
     if (mentionsApp) {
       // Find user and award social points
-      const { data: user } = await supabaseAdmin
+      const { data: user } = await supabaseAdmin!
         .from('users')
         .select('*')
         .eq('farcaster_fid', castData.author.fid)
@@ -243,7 +254,7 @@ async function handleCastCreated(event: WebhookEvent) {
       if (user) {
         const socialPoints = 25
         
-        await supabaseAdmin
+        await supabaseAdmin!
           .from('users')
           .update({
             total_points: user.total_points + socialPoints
@@ -251,7 +262,7 @@ async function handleCastCreated(event: WebhookEvent) {
           .eq('id', user.id)
 
         // Send notification
-        await supabaseAdmin
+        await supabaseAdmin!
           .from('notifications')
           .insert({
             user_id: user.id,
