@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Settings, Twitter, User, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { X, Settings, Twitter, User, CheckCircle, AlertCircle, Loader2, LogOut } from 'lucide-react'
 import { useState } from 'react'
 
 interface Player {
@@ -24,6 +24,7 @@ interface SettingsModalProps {
   onClose: () => void
   player: Player | null
   onPlayerUpdate?: (updatedPlayer: Player) => void
+  onLogout?: () => void
 }
 
 interface EthosApiResponse {
@@ -37,7 +38,7 @@ interface EthosApiResponse {
   }
 }
 
-export default function SettingsModal({ onClose, player, onPlayerUpdate }: SettingsModalProps) {
+export default function SettingsModal({ onClose, player, onPlayerUpdate, onLogout }: SettingsModalProps) {
   const [xUsername, setXUsername] = useState('')
   const [isConnecting, setIsConnecting] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
@@ -324,6 +325,25 @@ export default function SettingsModal({ onClose, player, onPlayerUpdate }: Setti
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Logout Section */}
+          <div className="pt-4 border-t border-gray-200 dark:border-white/10 mt-6">
+            <button
+              onClick={() => {
+                if (onLogout) {
+                  onLogout()
+                  onClose()
+                }
+              }}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Logout & Disconnect Wallet</span>
+            </button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+              This will disconnect your wallet and clear your session
+            </p>
           </div>
         </motion.div>
       </motion.div>

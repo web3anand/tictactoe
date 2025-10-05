@@ -126,35 +126,68 @@ export default function Home() {
     
     let newPlayer: Player
     
-    // If wallet is connected, try to load/create from API first
+    // If wallet is connected, try to load/create from leaderboard API first
     if (address) {
       try {
-        const response = await fetch('/api/games', {
+        // First, try to get existing player data from leaderboard
+        const leaderboardResponse = await fetch('/api/leaderboard')
+        if (leaderboardResponse.ok) {
+          const leaderboardData = await leaderboardResponse.json()
+          if (leaderboardData.success && leaderboardData.leaderboard) {
+            // Look for existing player by wallet address
+            const existingPlayer = leaderboardData.leaderboard.find((p: any) => 
+              p.wallet_address === address
+            )
+            
+            if (existingPlayer) {
+              // Use existing player data
+              newPlayer = {
+                id: existingPlayer.id,
+                name: existingPlayer.display_name || existingPlayer.username || name,
+                points: existingPlayer.total_points || 0,
+                gamesPlayed: existingPlayer.games_played || 0,
+                gamesWon: existingPlayer.games_won || 0,
+                walletAddress: address
+              }
+              setPlayer(newPlayer)
+              localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
+              updateLeaderboard()
+              console.log('✅ Existing player loaded from database:', newPlayer)
+              return
+            }
+          }
+        }
+        
+        // If no existing player found, create new one via leaderboard API
+        const createResponse = await fetch('/api/leaderboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            playerId: Math.random().toString(36).substring(2, 15),
-            playerName: name,
-            walletAddress: address
+            walletAddress: address,
+            name: name,
+            points: 0,
+            gamesPlayed: 0,
+            gamesWon: 0,
+            winStreak: 0
           })
         })
         
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success && data.player) {
+        if (createResponse.ok) {
+          const createData = await createResponse.json()
+          if (createData.success && createData.player) {
             // Use player data from API
             newPlayer = {
-              id: data.player.id,
-              name: data.player.name || name,
-              points: data.player.points || 0,
-              gamesPlayed: data.player.gamesPlayed || 0,
-              gamesWon: data.player.gamesWon || 0,
+              id: createData.player.id,
+              name: createData.player.name || name,
+              points: createData.player.points || 0,
+              gamesPlayed: createData.player.gamesPlayed || 0,
+              gamesWon: createData.player.gamesWon || 0,
               walletAddress: address
             }
             setPlayer(newPlayer)
             localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
             updateLeaderboard()
-            console.log('✅ Player loaded/created from database:', newPlayer)
+            console.log('✅ New player created in database:', newPlayer)
             return
           }
         }
@@ -208,24 +241,27 @@ export default function Home() {
     // Try to save to API first (if wallet connected)
     if (updatedPlayer.walletAddress) {
       try {
-        const response = await fetch('/api/games', {
+        const response = await fetch('/api/leaderboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            playerId: updatedPlayer.id,
-            playerName: updatedPlayer.name,
             walletAddress: updatedPlayer.walletAddress,
+            name: updatedPlayer.name,
             points: updatedPlayer.points,
             gamesPlayed: updatedPlayer.gamesPlayed,
-            gamesWon: updatedPlayer.gamesWon
+            gamesWon: updatedPlayer.gamesWon,
+            winStreak: 0 // You can track this if needed
           })
         })
         
         if (response.ok) {
           const data = await response.json()
-          console.log('✅ Player data saved to database:', data)
+          console.log('✅ Player data saved to database via leaderboard API:', data)
           updateLeaderboard()
           return
+        } else {
+          const errorData = await response.json()
+          console.warn('⚠️  Leaderboard API error:', errorData)
         }
       } catch (error) {
         console.warn('⚠️  API save failed, using localStorage fallback:', error)
@@ -292,10 +328,15 @@ export default function Home() {
     try {
       console.log('🚪 Starting logout process...')
       
+      // Disconnect wallet first to ensure proper disconnection
+      if (isConnected) {
+        disconnect()
+      }
+      
       // Set manual logout flag to prevent auto-login
       setHasManuallyLoggedOut(true)
       
-      // Clear player state first
+      // Clear player state
       setPlayer(null)
       
       // Clear localStorage
@@ -315,11 +356,6 @@ export default function Home() {
       setShowSettings(false)
       setError('')
       
-      // Disconnect wallet to fully logout
-      if (isConnected) {
-        disconnect()
-      }
-      
       console.log('✅ Logout completed successfully')
     } catch (error) {
       console.error('❌ Logout error:', error)
@@ -327,12 +363,16 @@ export default function Home() {
       setPlayer(null)
       setGameMode('menu')
       setHasManuallyLoggedOut(true)
+      if (isConnected) {
+        disconnect()
+      }
     }
   }
 
   // Private room functions
   const createPrivateRoom = async (code: string) => {
     try {
+      console.log('🚀 Creating private room with code:', code)
       const response = await fetch('/api/games', {
         method: 'POST',
         headers: {
@@ -349,18 +389,30 @@ export default function Home() {
         throw new Error('Failed to create room')
       }
       
-      const gameData = await response.json()
-      setGame(gameData)
-      setGameMode('multiplayer')
-      setError('')
+      const responseData = await response.json()
+      console.log('✅ Room creation response:', responseData)
+      
+      if (responseData.success && responseData.game) {
+        console.log('✅ Room creation response data:', responseData)
+        console.log('✅ Game object:', responseData.game)
+        console.log('✅ Board length:', responseData.game.board?.length)
+        console.log('✅ Board content:', responseData.game.board)
+        setGame(responseData.game)
+        setGameMode('multiplayer')
+        setError('')
+        console.log('✅ Room created successfully:', responseData.game.roomCode)
+      } else {
+        throw new Error('Invalid response from server')
+      }
     } catch (err) {
+      console.error('❌ Error creating private room:', err)
       setError('Failed to create room. Please try again.')
-      console.error('Error creating private room:', err)
     }
   }
 
   const joinPrivateRoom = async (code: string) => {
     try {
+      console.log('🔗 Joining private room with code:', code)
       const response = await fetch(`/api/games/${code}`, {
         method: 'PUT',
         headers: {
@@ -375,13 +427,20 @@ export default function Home() {
         throw new Error('Room not found or already full')
       }
       
-      const gameData = await response.json()
-      setGame(gameData)
-      setGameMode('multiplayer')
-      setError('')
+      const responseData = await response.json()
+      console.log('✅ Join room response:', responseData)
+      
+      if (responseData.success && responseData.game) {
+        setGame(responseData.game)
+        setGameMode('multiplayer')
+        setError('')
+        console.log('✅ Joined room successfully:', responseData.game.roomCode)
+      } else {
+        throw new Error('Invalid response from server')
+      }
     } catch (err) {
+      console.error('❌ Error joining private room:', err)
       setError('Failed to join room. Check the code and try again.')
-      console.error('Error joining private room:', err)
     }
   }
 
@@ -983,20 +1042,10 @@ export default function Home() {
                 <p className="text-sm text-muted-foreground">Welcome, {player.name}!</p>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => {
-                      console.log('🔴 Logout button clicked')
-                      const confirmed = window.confirm('Are you sure you want to logout? This will disconnect your wallet and clear your session.')
-                      console.log('User response:', confirmed ? 'Confirmed' : 'Cancelled')
-                      if (confirmed) {
-                        console.log('✅ User confirmed logout - executing...')
-                        handleLogout()
-                      } else {
-                        console.log('❌ User cancelled logout')
-                      }
-                    }}
-                    className="text-xs bg-destructive/20 hover:bg-destructive/30 border border-destructive/30 px-2 py-1 rounded transition-all duration-300 text-destructive"
+                    onClick={() => setShowSettings(true)}
+                    className="text-xs bg-white/10 hover:bg-white/20 border border-white/20 px-2 py-1 rounded transition-all duration-300"
                   >
-                    Logout
+                    Settings
                   </button>
                 </div>
               </div>
@@ -1072,6 +1121,7 @@ export default function Home() {
                   setPlayer(updatedPlayer)
                   updateLeaderboard()
                 }}
+                onLogout={handleLogout}
               />
             )}
           </AnimatePresence>

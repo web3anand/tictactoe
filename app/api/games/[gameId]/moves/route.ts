@@ -27,10 +27,15 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Not your turn' }, { status: 400 })
     }
 
-    // Parse current board
-    const board = game.board.split(',')
+    // Parse current board - handle both string and array formats
+    let board
+    if (typeof game.board === 'string') {
+      board = game.board.split(',')
+    } else {
+      board = [...game.board] // Clone the array
+    }
     
-    if (board[position] !== '') {
+    if (board[position] !== '' && board[position] !== null) {
       return NextResponse.json({ success: false, error: 'Position already taken' }, { status: 400 })
     }
 
@@ -38,25 +43,53 @@ export async function POST(
     board[position] = symbol
     const newMoves = game.moves + 1
 
-    // Check for win
-    const winningCombinations = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-      [0, 4, 8], [2, 4, 6] // Diagonals
-    ]
+    // Check for win - 6x6 board with 4-in-a-row
+    const winningCombinations = []
+    
+    // Rows (6 rows, 3 possible 4-in-a-row per row)
+    for (let row = 0; row < 6; row++) {
+      for (let col = 0; col <= 2; col++) {
+        const start = row * 6 + col
+        winningCombinations.push([start, start + 1, start + 2, start + 3])
+      }
+    }
+    
+    // Columns (6 columns, 3 possible 4-in-a-row per column)
+    for (let col = 0; col < 6; col++) {
+      for (let row = 0; row <= 2; row++) {
+        const start = row * 6 + col
+        winningCombinations.push([start, start + 6, start + 12, start + 18])
+      }
+    }
+    
+    // Diagonals (top-left to bottom-right)
+    for (let row = 0; row <= 2; row++) {
+      for (let col = 0; col <= 2; col++) {
+        const start = row * 6 + col
+        winningCombinations.push([start, start + 7, start + 14, start + 21])
+      }
+    }
+    
+    // Diagonals (top-right to bottom-left)
+    for (let row = 0; row <= 2; row++) {
+      for (let col = 3; col < 6; col++) {
+        const start = row * 6 + col
+        winningCombinations.push([start, start + 5, start + 10, start + 15])
+      }
+    }
 
     let winner = null
     let gameOver = false
 
-    for (const [a, b, c] of winningCombinations) {
-      if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+    for (const [a, b, c, d] of winningCombinations) {
+      if (board[a] && board[a] === board[b] && board[a] === board[c] && board[a] === board[d]) {
         winner = board[a]
         gameOver = true
         break
       }
     }
 
-    if (!gameOver && newMoves === 9) {
+    if (!gameOver && newMoves === 36) {
       winner = 'Draw'
       gameOver = true
     }
@@ -82,7 +115,7 @@ export async function POST(
       }
     }
 
-    // Update game state
+    // Update game state - ensure board is stored as string in memory DB
     const updatedGame = memoryDb.updateGame(gameId, {
       board: board.join(','),
       currentPlayer: symbol === 'X' ? 'O' : 'X',
@@ -134,7 +167,7 @@ export async function POST(
         player1: player1,
         player2: player2,
         currentPlayer: updatedGame.currentPlayer,
-        board: updatedGame.board.split(','),
+        board: typeof updatedGame.board === 'string' ? updatedGame.board.split(',') : updatedGame.board,
         gameOver: updatedGame.gameOver,
         winner: updatedGame.winner,
         moves: updatedGame.moves,

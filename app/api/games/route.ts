@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, createUser, getUserByWallet } from '@/lib/supabase'
+import { memoryDb } from '@/lib/memory-db'
 
 // Helper function to create fallback game when database is not available
 function createFallbackGame(body: any) {
@@ -13,24 +14,36 @@ function createFallbackGame(body: any) {
 
   const walletAddress = player1Data.wallet_address || `guest_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
   const finalRoomCode = body.roomCode || Math.random().toString(36).substring(2, 8).toUpperCase()
+  const gameId = Math.random().toString(36).substring(2, 15)
+  const player1Id = player1Data.id || Math.random().toString(36).substring(2, 15)
 
-  const mockGame = {
-    id: Math.random().toString(36).substring(2, 15),
-    room_code: finalRoomCode,
-    player_x_id: player1Data.id || Math.random().toString(36).substring(2, 15),
-    board: Array(36).fill(null), // 6x6 board
-    current_player: 'X',
-    status: 'waiting',
-    game_mode: body.gameMode || (body.isPrivate ? 'private' : 'quick'),
-    is_private: body.isPrivate || false,
-    base_points: body.gameMode === 'ranked' ? 50 : 25,
-    multiplier: body.gameMode === 'ranked' ? 2.0 : 1.5,
-    total_moves: 0,
-    created_at: new Date().toISOString()
+  // Create or find user in memory database
+  let memoryUser = memoryDb.findUserByWallet(walletAddress)
+  if (!memoryUser) {
+    memoryUser = memoryDb.createUser({
+      name: player1Data.name,
+      points: player1Data.points || 0,
+      gamesPlayed: player1Data.gamesPlayed || 0,
+      gamesWon: player1Data.gamesWon || 0,
+      walletAddress: walletAddress
+    })
   }
 
+  // Create game in memory database
+  const memoryGame = memoryDb.createGame({
+    roomCode: finalRoomCode,
+    player1Id: memoryUser.id,
+    currentPlayer: 'X',
+    board: Array(36).fill(null).join(','), // Store as comma-separated string
+    gameOver: false,
+    moves: 0,
+    multiplier: body.gameMode === 'ranked' ? 2.0 : 1.5,
+    streak: 0,
+    isPrivate: body.isPrivate || false
+  })
+
   const mockUser = {
-    id: player1Data.id || Math.random().toString(36).substring(2, 15),
+    id: memoryUser.id,
     wallet_address: walletAddress,
     username: player1Data.name,
     display_name: player1Data.name,
@@ -43,17 +56,24 @@ function createFallbackGame(body: any) {
     success: true, 
     mode: 'fallback',
     game: {
-      id: mockGame.id,
-      roomCode: mockGame.room_code,
-      player1: mockUser,
+      id: memoryGame.id,
+      roomCode: memoryGame.roomCode,
+      player1: {
+        id: memoryUser.id,
+        name: memoryUser.name,
+        points: memoryUser.points,
+        gamesPlayed: memoryUser.gamesPlayed,
+        gamesWon: memoryUser.gamesWon,
+        walletAddress: memoryUser.walletAddress
+      },
       player2: null,
-      currentPlayer: mockGame.current_player,
-      board: mockGame.board,
-      gameOver: mockGame.status === 'finished',
-      status: mockGame.status,
-      moves: mockGame.total_moves,
-      multiplier: mockGame.multiplier,
-      streak: 0
+      currentPlayer: memoryGame.currentPlayer,
+      board: Array(36).fill(null), // Return as array for frontend
+      gameOver: memoryGame.gameOver,
+      status: 'waiting',
+      moves: memoryGame.moves,
+      multiplier: memoryGame.multiplier,
+      streak: memoryGame.streak
     }
   })
 }
@@ -145,7 +165,14 @@ export async function POST(request: NextRequest) {
     // Handle different request formats
     let player1Data
     if (body.player1) {
-      player1Data = body.player1
+      player1Data = {
+        wallet_address: body.player1.walletAddress || body.player1.wallet_address,
+        name: body.player1.name,
+        points: body.player1.points || 0,
+        gamesPlayed: body.player1.gamesPlayed || 0,
+        gamesWon: body.player1.gamesWon || 0,
+        id: body.player1.id
+      }
     } else if (body.playerId && body.playerName) {
       player1Data = {
         wallet_address: body.walletAddress || `guest_${body.playerId}`,
@@ -168,7 +195,19 @@ export async function POST(request: NextRequest) {
       return createFallbackGame(body)
     }
 
-    // Use database for real multiplayer
+    // Check if player has a valid wallet address
+    // If wallet_address is missing, starts with "guest_", or is not a valid ethereum address, use fallback
+    const hasValidWallet = player1Data.wallet_address && 
+                          !player1Data.wallet_address.startsWith('guest_') &&
+                          player1Data.wallet_address.startsWith('0x') &&
+                          player1Data.wallet_address.length === 42
+
+    if (!hasValidWallet) {
+      console.warn(`Player ${player1Data.name} has no valid wallet address (${player1Data.wallet_address}) - using fallback mode`)
+      return createFallbackGame(body)
+    }
+
+    // Use database for players with valid wallet addresses
     return await createDatabaseGame(body, player1Data)
 
   } catch (error) {
