@@ -1,51 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { minikitConfig } from '@/minikit.config'
 
-// Webhook event types from Base
-interface WebhookEvent {
-  type: 'user.joined' | 'user.left' | 'payment.completed' | 'cast.created' | 'frame.interaction'
-  data: {
-    user?: {
-      fid: number
-      username: string
-      displayName: string
-      pfpUrl: string
-      verified: boolean
-    }
-    payment?: {
-      transactionHash: string
-      amount: string
-      currency: string
-      fromAddress: string
-      toAddress: string
-    }
-    cast?: {
-      hash: string
-      text: string
-      author: {
-        fid: number
-        username: string
-      }
-    }
-    frame?: {
-      buttonIndex: number
-      inputText?: string
-      state?: string
-    }
+// Farcaster Mini App webhook event types
+interface FarcasterWebhookEvent {
+  event: 'miniapp_added' | 'miniapp_removed' | 'notifications_enabled' | 'notifications_disabled'
+  notificationDetails?: {
+    url: string
+    token: string
   }
-  timestamp: string
-  signature: string
 }
 
-// Verify webhook signature
-function verifyWebhookSignature(body: string, signature: string): boolean {
-  const secret = process.env.MINIKIT_WEBHOOK_SECRET
-  if (!secret) return false
-  
-  // Implement signature verification based on Base's webhook signing method
-  // This is a placeholder - replace with actual verification logic
-  return true
+// JSON Farcaster Signature format
+interface SignedWebhookPayload {
+  header: string
+  payload: string
+  signature: string
 }
 
 export async function POST(request: NextRequest) {
@@ -57,40 +26,48 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.text()
-    const signature = request.headers.get('x-minikit-signature') || ''
-    
-    // Verify webhook signature
-    if (!verifyWebhookSignature(body, signature)) {
-      console.error('❌ Invalid webhook signature')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    console.log('📡 Webhook event received')
+
+    // Parse the signed payload
+    let signedPayload: SignedWebhookPayload
+    try {
+      signedPayload = JSON.parse(body)
+    } catch (error) {
+      console.error('❌ Invalid JSON in webhook payload')
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    const event: WebhookEvent = JSON.parse(body)
-    console.log('📡 Webhook event received:', event.type)
+    // Decode and parse the actual event data
+    let eventData: FarcasterWebhookEvent
+    try {
+      const decodedPayload = Buffer.from(signedPayload.payload, 'base64url').toString('utf-8')
+      eventData = JSON.parse(decodedPayload)
+    } catch (error) {
+      console.error('❌ Failed to decode webhook payload')
+      return NextResponse.json({ error: 'Invalid payload encoding' }, { status: 400 })
+    }
 
-    switch (event.type) {
-      case 'user.joined':
-        await handleUserJoined(event)
+    console.log('📋 Processing event:', eventData.event)
+
+    switch (eventData.event) {
+      case 'miniapp_added':
+        await handleMiniAppAdded(eventData, signedPayload)
         break
         
-      case 'user.left':
-        await handleUserLeft(event)
+      case 'miniapp_removed':
+        await handleMiniAppRemoved(eventData, signedPayload)
         break
         
-      case 'payment.completed':
-        await handlePaymentCompleted(event)
+      case 'notifications_enabled':
+        await handleNotificationsEnabled(eventData, signedPayload)
         break
         
-      case 'cast.created':
-        await handleCastCreated(event)
-        break
-        
-      case 'frame.interaction':
-        await handleFrameInteraction(event)
+      case 'notifications_disabled':
+        await handleNotificationsDisabled(eventData, signedPayload)
         break
         
       default:
-        console.log('🤷 Unknown webhook event type:', event.type)
+        console.log('🤷 Unknown webhook event type:', eventData.event)
     }
 
     return NextResponse.json({ success: true })
@@ -100,213 +77,164 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleUserJoined(event: WebhookEvent) {
-  const userData = event.data.user
-  if (!userData) return
-
-  console.log('👤 User joined:', userData.username)
+async function handleMiniAppAdded(event: FarcasterWebhookEvent, signedPayload: SignedWebhookPayload) {
+  console.log('➕ User added Mini App')
 
   try {
-    if (!supabaseAdmin) {
-      console.warn('Database not configured - skipping user creation')
+    if (!supabaseAdmin || !event.notificationDetails) {
+      console.warn('Database not configured or no notification details - skipping token storage')
       return
     }
 
-    // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin!
+    // Extract FID from header (you'll need to decode this properly in production)
+    const headerData = JSON.parse(Buffer.from(signedPayload.header, 'base64url').toString('utf-8'))
+    const userFid = headerData.fid
+
+    if (!userFid) {
+      console.error('❌ No FID found in webhook header')
+      return
+    }
+
+    // Store notification token
+    const { error } = await supabaseAdmin
+      .from('farcaster_notifications')
+      .upsert({
+        user_fid: userFid,
+        notification_url: event.notificationDetails.url,
+        notification_token: event.notificationDetails.token,
+        enabled: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_fid'
+      })
+
+    if (error) {
+      console.error('❌ Failed to store notification token:', error)
+      return
+    }
+
+    // Also update user record if exists
+    await supabaseAdmin
       .from('users')
-      .select('id')
-      .eq('farcaster_fid', userData.fid)
-      .single()
+      .update({ 
+        farcaster_miniapp_added: true,
+        last_active: new Date().toISOString()
+      })
+      .eq('farcaster_fid', userFid)
 
-    if (!existingUser) {
-      // Create new user
-      const { data: newUser } = await supabaseAdmin!
-        .from('users')
-        .insert({
-          farcaster_fid: userData.fid,
-          farcaster_username: userData.username,
-          display_name: userData.displayName,
-          avatar_url: userData.pfpUrl,
-          farcaster_verified: userData.verified,
-          wallet_address: `farcaster:${userData.fid}` // Temporary wallet until they connect
-        })
-        .select()
-        .single()
-
-      // Send welcome notification
-      if (newUser) {
-        await supabaseAdmin!
-          .from('notifications')
-          .insert({
-            user_id: newUser.id,
-            type: 'system',
-            title: 'Welcome to TicTacToe Pro! 🎮',
-            message: 'Start playing to earn points and climb the leaderboard!',
-            data: { welcome: true }
-          })
-      }
-
-      console.log('✅ New user created:', newUser?.id)
-    } else {
-      // Update existing user activity
-      await supabaseAdmin!
-        .from('users')
-        .update({ 
-          last_active: new Date().toISOString(),
-          display_name: userData.displayName,
-          avatar_url: userData.pfpUrl,
-          farcaster_verified: userData.verified
-        })
-        .eq('farcaster_fid', userData.fid)
-
-      console.log('✅ User updated:', existingUser.id)
-    }
+    console.log('✅ Notification token stored for FID:', userFid)
   } catch (error) {
-    console.error('❌ Error handling user joined:', error)
+    console.error('❌ Error handling miniapp_added:', error)
   }
 }
 
-async function handleUserLeft(event: WebhookEvent) {
-  const userData = event.data.user
-  if (!userData) return
-
-  console.log('👋 User left:', userData.username)
+async function handleMiniAppRemoved(event: FarcasterWebhookEvent, signedPayload: SignedWebhookPayload) {
+  console.log('➖ User removed Mini App')
 
   try {
-    // Update user's last active time
-    await supabaseAdmin!
+    if (!supabaseAdmin) {
+      console.warn('Database not configured - skipping token removal')
+      return
+    }
+
+    // Extract FID from header
+    const headerData = JSON.parse(Buffer.from(signedPayload.header, 'base64url').toString('utf-8'))
+    const userFid = headerData.fid
+
+    if (!userFid) {
+      console.error('❌ No FID found in webhook header')
+      return
+    }
+
+    // Remove notification token
+    await supabaseAdmin
+      .from('farcaster_notifications')
+      .delete()
+      .eq('user_fid', userFid)
+
+    // Update user record
+    await supabaseAdmin
       .from('users')
-      .update({ last_active: new Date().toISOString() })
-      .eq('farcaster_fid', userData.fid)
+      .update({ 
+        farcaster_miniapp_added: false,
+        last_active: new Date().toISOString()
+      })
+      .eq('farcaster_fid', userFid)
+
+    console.log('✅ Notification token removed for FID:', userFid)
   } catch (error) {
-    console.error('❌ Error handling user left:', error)
+    console.error('❌ Error handling miniapp_removed:', error)
   }
 }
 
-async function handlePaymentCompleted(event: WebhookEvent) {
-  const paymentData = event.data.payment
-  if (!paymentData) return
-
-  console.log('💰 Payment completed:', paymentData.transactionHash)
+async function handleNotificationsEnabled(event: FarcasterWebhookEvent, signedPayload: SignedWebhookPayload) {
+  console.log('� Notifications enabled')
 
   try {
-    // Find user by wallet address
-    const { data: user } = await supabaseAdmin!
-      .from('users')
-      .select('*')
-      .eq('wallet_address', paymentData.fromAddress)
-      .single()
-
-    if (user) {
-      // Award bonus points for payment
-      const bonusPoints = parseInt(paymentData.amount) * 10 // 10 points per unit
-      
-      await supabaseAdmin!
-        .from('users')
-        .update({
-          total_points: user.total_points + bonusPoints
-        })
-        .eq('id', user.id)
-
-      // Send notification
-      await supabaseAdmin!
-        .from('notifications')
-        .insert({
-          user_id: user.id,
-          type: 'system',
-          title: 'Payment Received! 💰',
-          message: `You earned ${bonusPoints} bonus points!`,
-          data: { 
-            transaction_hash: paymentData.transactionHash,
-            bonus_points: bonusPoints
-          }
-        })
-
-      console.log('✅ Bonus points awarded:', bonusPoints)
+    if (!supabaseAdmin || !event.notificationDetails) {
+      console.warn('Database not configured or no notification details')
+      return
     }
+
+    // Extract FID from header
+    const headerData = JSON.parse(Buffer.from(signedPayload.header, 'base64url').toString('utf-8'))
+    const userFid = headerData.fid
+
+    if (!userFid) {
+      console.error('❌ No FID found in webhook header')
+      return
+    }
+
+    // Update notification token
+    await supabaseAdmin
+      .from('farcaster_notifications')
+      .upsert({
+        user_fid: userFid,
+        notification_url: event.notificationDetails.url,
+        notification_token: event.notificationDetails.token,
+        enabled: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_fid'
+      })
+
+    console.log('✅ Notifications enabled for FID:', userFid)
   } catch (error) {
-    console.error('❌ Error handling payment:', error)
+    console.error('❌ Error handling notifications_enabled:', error)
   }
 }
 
-async function handleCastCreated(event: WebhookEvent) {
-  const castData = event.data.cast
-  if (!castData) return
-
-  console.log('📝 Cast created:', castData.text)
+async function handleNotificationsDisabled(event: FarcasterWebhookEvent, signedPayload: SignedWebhookPayload) {
+  console.log('🔕 Notifications disabled')
 
   try {
-    // Check if cast mentions the app
-    const appMentions = ['tictactoe', 'tic tac toe', 'gaming']
-    const mentionsApp = appMentions.some(mention => 
-      castData.text.toLowerCase().includes(mention)
-    )
-
-    if (mentionsApp) {
-      // Find user and award social points
-      const { data: user } = await supabaseAdmin!
-        .from('users')
-        .select('*')
-        .eq('farcaster_fid', castData.author.fid)
-        .single()
-
-      if (user) {
-        const socialPoints = 25
-        
-        await supabaseAdmin!
-          .from('users')
-          .update({
-            total_points: user.total_points + socialPoints
-          })
-          .eq('id', user.id)
-
-        // Send notification
-        await supabaseAdmin!
-          .from('notifications')
-          .insert({
-            user_id: user.id,
-            type: 'system',
-            title: 'Social Points Earned! 📱',
-            message: `You earned ${socialPoints} points for sharing!`,
-            data: { 
-              cast_hash: castData.hash,
-              social_points: socialPoints
-            }
-          })
-
-        console.log('✅ Social points awarded:', socialPoints)
-      }
+    if (!supabaseAdmin) {
+      console.warn('Database not configured')
+      return
     }
-  } catch (error) {
-    console.error('❌ Error handling cast:', error)
-  }
-}
 
-async function handleFrameInteraction(event: WebhookEvent) {
-  const frameData = event.data.frame
-  if (!frameData) return
+    // Extract FID from header
+    const headerData = JSON.parse(Buffer.from(signedPayload.header, 'base64url').toString('utf-8'))
+    const userFid = headerData.fid
 
-  console.log('🖼️ Frame interaction:', frameData.buttonIndex)
-
-  try {
-    // Handle different frame button interactions
-    switch (frameData.buttonIndex) {
-      case 1: // Play Now button
-        // Track engagement
-        console.log('🎮 User clicked Play Now from frame')
-        break
-        
-      case 2: // Leaderboard button
-        // Track leaderboard views
-        console.log('🏆 User clicked Leaderboard from frame')
-        break
-        
-      default:
-        console.log('🤷 Unknown frame button:', frameData.buttonIndex)
+    if (!userFid) {
+      console.error('❌ No FID found in webhook header')
+      return
     }
+
+    // Disable notifications but keep token for potential re-enabling
+    await supabaseAdmin
+      .from('farcaster_notifications')
+      .update({
+        enabled: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_fid', userFid)
+
+    console.log('✅ Notifications disabled for FID:', userFid)
   } catch (error) {
-    console.error('❌ Error handling frame interaction:', error)
+    console.error('❌ Error handling notifications_disabled:', error)
   }
 }
 
@@ -321,8 +249,8 @@ export async function GET(request: NextRequest) {
   }
   
   return NextResponse.json({ 
-    status: 'TicTacToe Pro Webhook Endpoint',
-    version: minikitConfig.miniapp.version,
-    features: minikitConfig.miniapp.features
+    status: 'TicTacToe Pro Farcaster Webhook Endpoint',
+    version: '1.0',
+    features: ['miniapp_added', 'miniapp_removed', 'notifications_enabled', 'notifications_disabled']
   })
 }

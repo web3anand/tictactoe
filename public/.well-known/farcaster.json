@@ -3,5 +3,35 @@
     "header": "eyJmaWQiOjEsInR5cGUiOiJjdXN0b2R5Iiwia2V5IjoiMHhkNzBlMDlhNmM2ZWNhOTMzNDA3M2E4MDMzMDI3YWY3NzgzMzJkM2Y3In0",
     "payload": "eyJkb21haW4iOiJ0aWN0YWN0b2UtcHJvLXZlcmNlbC5hcHAifQ",
     "signature": "MHg4YzU1YjYwNTMzN2Y3ZDdhOThjNjEzNGFhOGUwODJhODJkZjY4ZGE2MWRjYjI3Y2I0YjQ5OTlkOGQwMjJiYzJiMTk5YWI0Y2Y3M2E5YmY0N2NkOTU3NWVhZjg0ZmQzODY5OWUyZjJjZDVjYjBlNzU1YjczOGYyOWE5NzM4MWIwMWY"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "TicTacToe Pro",
+    "iconUrl": "https://tictactoe-pro-vercel.app/icon.png",
+    "homeUrl": "https://tictactoe-pro-vercel.app",
+    "imageUrl": "https://tictactoe-pro-vercel.app/og-image.svg",
+    "buttonTitle": "🎮 Play Now",
+    "splashImageUrl": "https://tictactoe-pro-vercel.app/splash.svg",
+    "splashBackgroundColor": "#000000",
+    "webhookUrl": "https://tictactoe-pro-vercel.app/api/webhook",
+    "description": "Play 6x6 TicTacToe with 4-in-a-row winning conditions, multiplayer battles, and onchain rewards on Base.",
+    "subtitle": "Strategic XO with Blockchain Rewards",
+    "screenshotUrls": [
+      "https://tictactoe-pro-vercel.app/screenshot-portrait.svg"
+    ],
+    "primaryCategory": "games",
+    "tags": ["gaming", "strategy", "multiplayer", "blockchain", "base", "onchain"],
+    "heroImageUrl": "https://tictactoe-pro-vercel.app/hero.svg",
+    "tagline": "Master the grid, earn onchain rewards!",
+    "ogTitle": "TicTacToe Pro - Onchain Gaming on Base",
+    "ogDescription": "Experience strategic 6x6 TicTacToe with blockchain-verified results and transparent leaderboards.",
+    "ogImageUrl": "https://tictactoe-pro-vercel.app/og-image.svg",
+    "requiredChains": ["eip155:8453"],
+    "requiredCapabilities": [
+      "actions.ready",
+      "actions.signIn",
+      "actions.composeCast",
+      "wallet.getEthereumProvider"
+    ]
   }
 }

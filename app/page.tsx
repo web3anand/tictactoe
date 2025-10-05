@@ -25,6 +25,8 @@ import PointsDisplay from '@/components/PointsDisplay'
 import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
 import SimpleWalletConnect from '@/components/SimpleWalletConnect'
+import { FarcasterActions, FarcasterAuthButton } from '@/components/FarcasterActions'
+import { useFarcaster } from '@/components/FarcasterProvider'
 import { createBotPlayer, getBotMove } from '@/lib/bot-player'
 import { Player, GameState } from '@/types/game'
 
@@ -47,6 +49,9 @@ export default function Home() {
   const { address, isConnected } = useAccount()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
+  
+  // Farcaster integration
+  const { isInMiniApp, user: farcasterUser, isReady, client } = useFarcaster()
 
   // Game state
   const [gameMode, setGameMode] = useState<'menu' | 'multiplayer' | 'singleplayer'>('menu')
@@ -1093,6 +1098,29 @@ export default function Home() {
             </button>
           </motion.div>
 
+          {/* Farcaster Actions */}
+          {isInMiniApp && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mb-6"
+            >
+              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 text-center">
+                <h3 className="text-sm font-semibold text-purple-300 mb-2">Farcaster Mini App</h3>
+                <FarcasterActions className="justify-center" />
+                {!farcasterUser && (
+                  <div className="mt-3">
+                    <FarcasterAuthButton onSuccess={(result) => {
+                      console.log('Farcaster auth success:', result)
+                      // Optionally integrate with your user system
+                    }} />
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {/* Modals */}
           <AnimatePresence>
             {showLeaderboard && (
@@ -1660,6 +1688,7 @@ function VictoryPopup({
   currentPlayer: Player | null
   onClose: () => void 
 }) {
+  const { isInMiniApp } = useFarcaster()
   const isWinner = !victoryData.isDraw && currentPlayer?.id === victoryData.winnerProfile.id
   
   const getBackgroundImage = () => {
@@ -1752,7 +1781,21 @@ function VictoryPopup({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
+            className="space-y-3"
           >
+            {/* Farcaster Share Button */}
+            {isInMiniApp && (
+              <FarcasterActions 
+                gameData={{
+                  gameId: 'victory',
+                  won: isWinner,
+                  score: victoryData.pointsEarned,
+                  opponent: isWinner ? victoryData.loserProfile.name : victoryData.winnerProfile.name
+                }}
+                className="w-full justify-center mb-3"
+              />
+            )}
+            
             <button
               onClick={onClose}
               className="w-full py-4 bg-white/90 hover:bg-white text-black rounded-xl font-bold text-lg transition-all duration-300 shadow-lg"

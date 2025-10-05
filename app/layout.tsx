@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import React from 'react'
 import './globals.css'
 import WalletProvider from '@/components/WalletProvider'
+import { FarcasterProvider } from '@/components/FarcasterProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -12,14 +13,16 @@ export const metadata: Metadata = {
   manifest: '/.well-known/farcaster.json',
   other: {
     'fc:miniapp': JSON.stringify({
-      version: "next",
-      imageUrl: "https://tictactoe-three-eta.vercel.app/og-image.svg",
+      version: "1",
+      imageUrl: "https://tictactoe-pro-vercel.app/og-image.svg",
       button: {
-        title: "Play Now",
+        title: "🎮 Play Now",
         action: {
           type: "launch_miniapp",
           name: "TicTacToe Pro",
-          url: "https://tictactoe-three-eta.vercel.app"
+          url: "https://tictactoe-pro-vercel.app",
+          splashImageUrl: "https://tictactoe-pro-vercel.app/splash.svg",
+          splashBackgroundColor: "#000000"
         }
       }
     })
@@ -43,11 +46,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.className} overflow-x-hidden dark`}>
-        <WalletProvider>
-          <div className="min-h-screen">
-            {children}
-          </div>
-        </WalletProvider>
+        <FarcasterProvider>
+          <WalletProvider>
+            <div className="min-h-screen">
+              {children}
+            </div>
+          </WalletProvider>
+        </FarcasterProvider>
       </body>
     </html>
   )
