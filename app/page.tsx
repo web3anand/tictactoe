@@ -117,20 +117,55 @@ export default function Home() {
     }
   }, [isConnected, address, player, hasManuallyLoggedOut])
 
-  const createPlayer = (name: string) => {
+  const createPlayer = async (name: string) => {
     console.log('👤 Creating/loading player:', name)
     
     // Reset the manual logout flag when creating a player
     setHasManuallyLoggedOut(false)
     
-    // Check if there's a saved player with the same name
+    let newPlayer: Player
+    
+    // If wallet is connected, try to load/create from API first
+    if (address) {
+      try {
+        const response = await fetch('/api/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerId: Math.random().toString(36).substring(2, 15),
+            playerName: name,
+            walletAddress: address
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.player) {
+            // Use player data from API
+            newPlayer = {
+              id: data.player.id,
+              name: data.player.name || name,
+              points: data.player.points || 0,
+              gamesPlayed: data.player.gamesPlayed || 0,
+              gamesWon: data.player.gamesWon || 0,
+              walletAddress: address
+            }
+            setPlayer(newPlayer)
+            localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
+            updateLeaderboard()
+            console.log('✅ Player loaded/created from database:', newPlayer)
+            return
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️  API player creation failed, using localStorage fallback:', error)
+      }
+    }
+    
+    // Fallback to localStorage logic
     const allSavedPlayers = JSON.parse(localStorage.getItem('tictactoe-all-players') || '{}')
     const existingPlayer = allSavedPlayers[name]
     
-    // Also reset the manual logout flag when user connects wallet
-    setHasManuallyLoggedOut(false)
-    
-    let newPlayer: Player
     if (existingPlayer) {
       // Restore existing player
       newPlayer = existingPlayer
@@ -163,13 +198,40 @@ export default function Home() {
   }
 
   // Update player data and persist it
-  const updatePlayerData = (updatedPlayer: Player) => {
+  const updatePlayerData = async (updatedPlayer: Player) => {
     console.log('💾 Updating player data:', updatedPlayer)
     
     // Update state first
     setPlayer(updatedPlayer)
     
-    // Save to localStorage with error handling
+    // Try to save to API first (if wallet connected)
+    if (updatedPlayer.walletAddress) {
+      try {
+        const response = await fetch('/api/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerId: updatedPlayer.id,
+            playerName: updatedPlayer.name,
+            walletAddress: updatedPlayer.walletAddress,
+            points: updatedPlayer.points,
+            gamesPlayed: updatedPlayer.gamesPlayed,
+            gamesWon: updatedPlayer.gamesWon
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('✅ Player data saved to database:', data)
+          updateLeaderboard()
+          return
+        }
+      } catch (error) {
+        console.warn('⚠️  API save failed, using localStorage fallback:', error)
+      }
+    }
+
+    // Fallback to localStorage with error handling
     try {
       localStorage.setItem('tictactoe-player', JSON.stringify(updatedPlayer))
       
@@ -186,9 +248,32 @@ export default function Home() {
     }
   }
 
-  // Load and update leaderboard from localStorage
-  // Load and update leaderboard from localStorage
-  const updateLeaderboard = () => {
+  // Load and update leaderboard from API (with localStorage fallback)
+  const updateLeaderboard = async () => {
+    try {
+      // Try to fetch from API first
+      const response = await fetch('/api/leaderboard')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.leaderboard) {
+          // Transform API data to match our Player interface
+          const apiPlayers = data.leaderboard.map((entry: any) => ({
+            id: entry.id,
+            name: entry.username || entry.display_name || `Player_${entry.wallet_address.slice(-4)}`,
+            points: entry.total_points,
+            gamesPlayed: entry.games_played,
+            gamesWon: entry.games_won,
+            walletAddress: entry.wallet_address
+          }))
+          setLeaderboard(apiPlayers)
+          return
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️  API leaderboard failed, using localStorage fallback:', error)
+    }
+
+    // Fallback to localStorage if API fails
     const allSavedPlayers = JSON.parse(localStorage.getItem('tictactoe-all-players') || '{}')
     const playerList = Object.values(allSavedPlayers) as Player[]
     // Sort by points (descending), then by win rate

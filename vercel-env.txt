@@ -1,0 +1,21 @@
+# Vercel Environment Variables Setup for TicTacToe Pro
+# Copy these values into your Vercel dashboard -> Settings -> Environment Variables
+
+# Supabase Configuration (Production)
+NEXT_PUBLIC_SUPABASE_URL=https://njpgolqorjiilzaswtql.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qcGdvbHFvcmppaWx6YXN3dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1NTk1ODMsImV4cCI6MjA3NTEzNTU4M30.WQBpNQhVKct5w1kEnSNLxnrKXlE_0LdYGPfvagkg_jM
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qcGdvbHFvcmppaWx6YXN3dHFsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTU1OTU4MywiZXhwIjoyMDc1MTM1NTgzfQ.gke_RChT3Y0QgpBTDaKlR5usPhRGeqIzB2NudXW3O-U
+
+# Base Network Configuration
+NEXT_PUBLIC_CHAIN_ID=8453
+NEXT_PUBLIC_RPC_URL=https://mainnet.base.org
+
+# Application Configuration
+NODE_ENV=production
+NEXT_PUBLIC_ROOT_URL=https://tictactoe-three-eta.vercel.app
+
+# Instructions:
+# 1. Go to https://vercel.com/web3anands-projects/tictactoe
+# 2. Click Settings -> Environment Variables
+# 3. Add each variable above for "Production" environment
+# 4. Redeploy the application
