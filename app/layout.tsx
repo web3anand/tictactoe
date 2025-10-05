@@ -14,14 +14,14 @@ export const metadata: Metadata = {
   other: {
     'fc:miniapp': JSON.stringify({
       version: "1",
-      imageUrl: "https://tictactoe-pro-vercel.app/og-image.svg",
+      imageUrl: "https://tictactoe-three-eta.vercel.app/og-image.svg",
       button: {
         title: "🎮 Play Now",
         action: {
           type: "launch_miniapp",
           name: "TicTacToe Pro",
-          url: "https://tictactoe-pro-vercel.app",
-          splashImageUrl: "https://tictactoe-pro-vercel.app/splash.svg",
+          url: "https://tictactoe-three-eta.vercel.app",
+          splashImageUrl: "https://tictactoe-three-eta.vercel.app/splash.svg",
           splashBackgroundColor: "#000000"
         }
       }
