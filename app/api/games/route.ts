@@ -94,10 +94,7 @@ async function createDatabaseGame(body: any, player1Data: any) {
         base_points: body.gameMode === 'ranked' ? 50 : 25,
         multiplier: body.gameMode === 'ranked' ? 2.0 : 1.5
       })
-      .select(`
-        *,
-        player_x:users!games_player_x_id_fkey(*)
-      `)
+      .select()
       .single()
 
     if (error) {
@@ -105,13 +102,23 @@ async function createDatabaseGame(body: any, player1Data: any) {
       throw error
     }
 
+    // Manually fetch user data since foreign key join is not available
+    const playerData = await getUserByWallet(player1Data.wallet_address)
+
     return NextResponse.json({ 
       success: true, 
       mode: 'database',
       game: {
         id: newGame.id,
         roomCode: newGame.room_code,
-        player1: newGame.player_x,
+        player1: playerData ? {
+          id: playerData.id,
+          name: playerData.display_name || playerData.username,
+          points: playerData.total_points,
+          gamesPlayed: playerData.games_played,
+          gamesWon: playerData.games_won,
+          walletAddress: playerData.wallet_address
+        } : player1Data,
         player2: null,
         currentPlayer: newGame.current_player,
         board: newGame.board,

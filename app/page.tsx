@@ -15,7 +15,8 @@ import {
   Search, 
   RefreshCw, 
   Copy,
-  User
+  User,
+  ArrowLeft
 } from 'lucide-react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
 import GameBoard from '@/components/GameBoard'
@@ -977,7 +978,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-3">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">Welcome, {player.name}!</p>
                 <div className="flex space-x-2">
@@ -1097,9 +1098,10 @@ export default function Home() {
               </div>
               <button
                 onClick={() => setGameMode('menu')}
-                className="p-2 bg-card hover:bg-accent rounded-lg transition-all duration-300 border border-border"
+                className="p-3 bg-card hover:bg-accent rounded-lg transition-all duration-200 border border-border flex items-center space-x-2"
               >
-                <X className="w-4 h-4 text-foreground" />
+                <ArrowLeft className="w-5 h-5 text-foreground" />
+                <span className="text-sm font-medium text-foreground">Back</span>
               </button>
             </div>
           </motion.header>
@@ -1283,15 +1285,16 @@ export default function Home() {
             </div>
             <button
               onClick={() => setGameMode('menu')}
-              className="p-2 bg-card hover:bg-accent rounded-lg transition-all duration-300 border border-border"
+              className="p-3 bg-card hover:bg-accent rounded-lg transition-all duration-200 border border-border flex items-center space-x-2"
             >
-              <X className="w-4 h-4 text-foreground" />
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+              <span className="text-sm font-medium text-foreground">Back</span>
             </button>
           </div>
 
           {/* Room Code Container */}
           <div className="mb-4 flex justify-center">
-            <div className="w-[380px] h-auto bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-xl flex items-center justify-between p-4 shadow-lg">
+            <div className="w-[380px] h-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-between p-4 shadow-lg">
               <div className="flex items-center space-x-4">
                 <Users className="w-6 h-6 text-brand" />
                 <div>
@@ -1318,7 +1321,7 @@ export default function Home() {
           <div className="mb-4 flex justify-center">
             <div className="w-[380px] flex gap-2">
               {/* Player 1 Card */}
-              <div className="w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10">
+              <div className="w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/5 backdrop-blur-md border border-white/10">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center bg-cyan-500">
                   <span className="text-white font-bold text-sm">X</span>
                 </div>
@@ -1329,7 +1332,7 @@ export default function Home() {
               </div>
 
               {/* Player 2 Card */}
-              <div className="w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10">
+              <div className="w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/5 backdrop-blur-md border border-white/10">
                 {game.player2 ? (
                   <>
                     <div className="w-8 h-8 rounded-full flex items-center justify-center bg-pink-500">
@@ -1369,16 +1372,13 @@ export default function Home() {
                   key={index}
                   onClick={() => makeMove(index)}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2)}
-                  className={`relative bg-white/20 dark:bg-white/10 backdrop-blur-sm border border-white/30 dark:border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/30 dark:hover:bg-white/20 ${
+                  className={`relative bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/20 ${
                     cell ? 'pixel-reveal pixel-grid-effect' : ''
                   }`}
                   whileTap={{ 
                     scale: 0.95,
-                    rotateY: 180,
-                    transition: { duration: 0.2 }
+                    transition: { duration: 0.1 }
                   }}
-                  animate={{ rotateY: 0 }}
-                  transition={{ duration: 0.3 }}
                 >
                   {cell === 'X' && (
                     <motion.div
@@ -1393,11 +1393,11 @@ export default function Home() {
                         clipPath: 'circle(100% at 50% 50%)'
                       }}
                       transition={{ 
-                        duration: 0.4,
+                        duration: 0.2,
                         ease: "easeOut",
-                        opacity: { duration: 0.2 },
-                        scale: { duration: 0.3, ease: "backOut" },
-                        clipPath: { duration: 0.35, ease: "easeOut" }
+                        opacity: { duration: 0.1 },
+                        scale: { duration: 0.15, ease: "easeOut" },
+                        clipPath: { duration: 0.2, ease: "easeOut" }
                       }}
                       className="w-12 h-12 flex items-center justify-center"
                     >
@@ -1424,11 +1424,11 @@ export default function Home() {
                         clipPath: 'circle(100% at 50% 50%)'
                       }}
                       transition={{ 
-                        duration: 0.4,
+                        duration: 0.2,
                         ease: "easeOut",
-                        opacity: { duration: 0.2 },
-                        scale: { duration: 0.3, ease: "backOut" },
-                        clipPath: { duration: 0.35, ease: "easeOut" }
+                        opacity: { duration: 0.1 },
+                        scale: { duration: 0.15, ease: "easeOut" },
+                        clipPath: { duration: 0.2, ease: "easeOut" }
                       }}
                       className="w-12 h-12 flex items-center justify-center"
                     >
@@ -1507,6 +1507,17 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-sm w-full space-y-6">
+          {/* Back Button */}
+          <div className="flex justify-start">
+            <button
+              onClick={() => setGameMode('menu')}
+              className="p-3 bg-card hover:bg-accent rounded-lg transition-all duration-200 border border-border flex items-center space-x-2"
+            >
+              <ArrowLeft className="w-5 h-5 text-foreground" />
+              <span className="text-sm font-medium text-foreground">Back</span>
+            </button>
+          </div>
+          
           <div className="text-center">
             <Crown className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-foreground mb-2">Multiplayer</h1>

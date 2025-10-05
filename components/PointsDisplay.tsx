@@ -22,7 +22,7 @@ export default function PointsDisplay({ player, currentMultiplier, streak }: Poi
       {/* Total Points */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
       >
         <Star className="w-4 h-4 mx-auto mb-1 text-yellow-500" />
         <div className="text-sm font-bold text-foreground">{player.points.toLocaleString()}</div>
@@ -32,7 +32,7 @@ export default function PointsDisplay({ player, currentMultiplier, streak }: Poi
       {/* Current Multiplier */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
       >
         <Zap className="w-4 h-4 mx-auto mb-1 text-purple-500" />
         <div className="text-sm font-bold text-foreground">{currentMultiplier}x</div>
@@ -42,7 +42,7 @@ export default function PointsDisplay({ player, currentMultiplier, streak }: Poi
       {/* Win Streak */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
       >
         <Target className="w-4 h-4 mx-auto mb-1 text-red-500" />
         <div className="text-sm font-bold text-foreground">{streak}</div>
@@ -52,7 +52,7 @@ export default function PointsDisplay({ player, currentMultiplier, streak }: Poi
       {/* Win Rate */}
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-2 text-center hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
       >
         <Trophy className="w-4 h-4 mx-auto mb-1 text-green-500" />
         <div className="text-sm font-bold text-foreground">{winRate.toFixed(1)}%</div>

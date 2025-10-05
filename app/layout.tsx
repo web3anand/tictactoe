@@ -3,8 +3,6 @@ import { Inter } from 'next/font/google'
 import React from 'react'
 import './globals.css'
 import WalletProvider from '@/components/WalletProvider'
-import { ThemeProvider } from "@/components/ThemeProvider"
-import { ThemeSwitcher } from "@/components/ThemeSwitcher"
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -33,6 +31,8 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#000000',
 }
 
 export default function RootLayout({
@@ -41,21 +41,13 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} overflow-x-hidden`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <WalletProvider>
-            <div className="min-h-screen">
-              <ThemeSwitcher />
-              {children}
-            </div>
-          </WalletProvider>
-        </ThemeProvider>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${inter.className} overflow-x-hidden dark`}>
+        <WalletProvider>
+          <div className="min-h-screen">
+            {children}
+          </div>
+        </WalletProvider>
       </body>
     </html>
   )

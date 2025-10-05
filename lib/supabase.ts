@@ -251,12 +251,12 @@ export const subscribeToNotifications = (userId: string, callback: (notification
 
 // Utility functions
 export const getUserByWallet = async (walletAddress: string): Promise<User | null> => {
-  if (!supabase) {
-    console.warn('Supabase not configured - returning null user')
+  if (!supabaseAdmin) {
+    console.warn('Supabase admin not configured - returning null user')
     return null
   }
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('wallet_address', walletAddress)
@@ -267,18 +267,23 @@ export const getUserByWallet = async (walletAddress: string): Promise<User | nul
 }
 
 export const createUser = async (userData: Partial<User>): Promise<User | null> => {
-  if (!supabase) {
-    console.warn('Supabase not configured - cannot create user')
+  if (!supabaseAdmin) {
+    console.warn('Supabase admin not configured - cannot create user')
     return null
   }
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('users')
     .insert(userData)
     .select()
     .single()
   
   if (error) {
+    // If user already exists, try to find them
+    if (error.code === '23505' && userData.wallet_address) {
+      console.log('User already exists, fetching existing user...')
+      return await getUserByWallet(userData.wallet_address)
+    }
     console.error('Error creating user:', error)
     return null
   }
@@ -290,12 +295,12 @@ export const updateUserStats = async (
   won: boolean, 
   pointsEarned: number
 ): Promise<void> => {
-  if (!supabase) {
-    console.warn('Supabase not configured - cannot update user stats')
+  if (!supabaseAdmin) {
+    console.warn('Supabase admin not configured - cannot update user stats')
     return
   }
   
-  const { data: user } = await supabase
+  const { data: user } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('id', userId)
@@ -317,19 +322,19 @@ export const updateUserStats = async (
     last_active: new Date().toISOString()
   }
 
-  await supabase
+  await supabaseAdmin
     .from('users')
     .update(newStats)
     .eq('id', userId)
 }
 
 export const getLeaderboard = async (limit: number = 50): Promise<any[]> => {
-  if (!supabase) {
-    console.warn('Supabase not configured - returning empty leaderboard')
+  if (!supabaseAdmin) {
+    console.warn('Supabase admin not configured - returning empty leaderboard')
     return []
   }
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('leaderboard')
     .select('*')
     .limit(limit)
@@ -342,13 +347,13 @@ export const getLeaderboard = async (limit: number = 50): Promise<any[]> => {
 }
 
 export const checkAchievements = async (userId: string): Promise<UserAchievement[]> => {
-  if (!supabase) {
-    console.warn('Supabase not configured - cannot check achievements')
+  if (!supabaseAdmin) {
+    console.warn('Supabase admin not configured - cannot check achievements')
     return []
   }
   
   // Get user stats
-  const { data: user } = await supabase
+  const { data: user } = await supabaseAdmin
     .from('users')
     .select('*')
     .eq('id', userId)
@@ -357,7 +362,7 @@ export const checkAchievements = async (userId: string): Promise<UserAchievement
   if (!user) return []
 
   // Get all achievements user doesn't have
-  const { data: availableAchievements } = await supabase
+  const { data: availableAchievements } = await supabaseAdmin
     .from('achievements')
     .select('*')
     .not('id', 'in', `(SELECT achievement_id FROM user_achievements WHERE user_id = '${userId}')`)
@@ -385,7 +390,7 @@ export const checkAchievements = async (userId: string): Promise<UserAchievement
     }
 
     if (unlocked) {
-      const { data: userAchievement } = await supabase
+      const { data: userAchievement } = await supabaseAdmin
         .from('user_achievements')
         .insert({
           user_id: userId,
@@ -398,7 +403,7 @@ export const checkAchievements = async (userId: string): Promise<UserAchievement
         newAchievements.push(userAchievement)
 
         // Award points
-        await supabase
+        await supabaseAdmin
           .from('users')
           .update({
             total_points: user.total_points + achievement.points_reward
@@ -406,7 +411,7 @@ export const checkAchievements = async (userId: string): Promise<UserAchievement
           .eq('id', userId)
 
         // Create notification
-        await supabase
+        await supabaseAdmin
           .from('notifications')
           .insert({
             user_id: userId,
