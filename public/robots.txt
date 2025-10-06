@@ -1,0 +1,11 @@
+# *
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+# Host
+Host: https://tictactoe-three-eta.vercel.app/
+
+# Sitemaps
+Sitemap: https://tictactoe-three-eta.vercel.app/sitemap.xml

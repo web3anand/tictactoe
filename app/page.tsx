@@ -19,6 +19,20 @@ import {
   ArrowLeft
 } from 'lucide-react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
+
+// Mobile performance optimization utilities
+const getMobileOptimizedTransition = (duration = 0.3) => ({
+  duration: typeof window !== 'undefined' && window.innerWidth < 768 ? duration * 0.5 : duration,
+  ease: "easeOut"
+});
+
+const getMobileOptimizedClasses = (defaultClasses: string, mobileClasses?: string) => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  if (isMobile && mobileClasses) {
+    return defaultClasses.replace(/backdrop-blur-md/g, '').replace(/backdrop-blur-sm/g, '') + ' ' + mobileClasses;
+  }
+  return defaultClasses;
+};
 import GameBoard from '@/components/GameBoard'
 import Leaderboard from '@/components/Leaderboard'
 import PointsDisplay from '@/components/PointsDisplay'
@@ -1009,8 +1023,9 @@ export default function Home() {
         <div className="max-w-sm mx-auto">
           {/* Header */}
           <motion.header
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={getMobileOptimizedTransition(0.3)}
             className="mb-6"
           >
             <div className="flex items-center justify-between mb-4">
@@ -1021,21 +1036,21 @@ export default function Home() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowLeaderboard(true)}
-                  className="p-2 bg-card hover:bg-accent rounded-lg transition-all duration-300 border border-border"
+                  className="p-2 bg-card hover:bg-accent rounded-lg transition-colors duration-200 border border-border"
                   title="Leaderboard"
                 >
                   <Trophy className="w-4 h-4 text-foreground" />
                 </button>
                 <button
                   onClick={() => setShowMultiplierInfo(true)}
-                  className="p-2 bg-card hover:bg-accent rounded-lg transition-all duration-300 border border-border"
+                  className="p-2 bg-card hover:bg-accent rounded-lg transition-colors duration-200 border border-border"
                   title="Multipliers"
                 >
                   <Zap className="w-4 h-4 text-foreground" />
                 </button>
                 <button
                   onClick={() => setShowSettings(true)}
-                  className="p-2 bg-card hover:bg-accent rounded-lg transition-all duration-300 border border-border"
+                  className="p-2 bg-card hover:bg-accent rounded-lg transition-colors duration-200 border border-border"
                 >
                   <Settings className="w-4 h-4 text-foreground" />
                 </button>
@@ -1074,16 +1089,19 @@ export default function Home() {
 
           {/* Game Mode Selection */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={getMobileOptimizedTransition(0.3)}
             className="space-y-4 mb-6"
           >
             <h2 className="text-lg font-semibold text-foreground text-center">Choose Game Mode</h2>
             
             <button
               onClick={() => setGameMode('multiplayer')}
-              className="w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+              className={getMobileOptimizedClasses(
+                "w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2",
+                "bg-card/80"
+              )}
             >
               <Users className="w-5 h-5" />
               <span>Random Multiplayer (6x6)</span>
@@ -1091,7 +1109,10 @@ export default function Home() {
             
             <button
               onClick={() => setGameMode('singleplayer')}
-              className="w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+              className={getMobileOptimizedClasses(
+                "w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2",
+                "bg-card/80"
+              )}
             >
               <User className="w-5 h-5" />
               <span>Play with Friends (Code)</span>
@@ -1450,33 +1471,28 @@ export default function Home() {
                   key={index}
                   onClick={() => makeMove(index)}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2)}
-                  className={`relative bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/20 ${
-                    cell ? 'pixel-reveal pixel-grid-effect' : ''
-                  }`}
+                  className={getMobileOptimizedClasses(
+                    `relative bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/20 ${
+                      cell ? 'pixel-reveal pixel-grid-effect' : ''
+                    }`,
+                    "bg-white/15"
+                  )}
                   whileTap={{ 
-                    scale: 0.95,
-                    transition: { duration: 0.1 }
+                    scale: 0.98,
+                    transition: { duration: 0.05 }
                   }}
                 >
                   {cell === 'X' && (
                     <motion.div
                       initial={{ 
                         opacity: 0,
-                        scale: 0,
-                        clipPath: 'circle(0% at 50% 50%)'
+                        scale: 0.8
                       }}
                       animate={{ 
                         opacity: 1,
-                        scale: 1,
-                        clipPath: 'circle(100% at 50% 50%)'
+                        scale: 1
                       }}
-                      transition={{ 
-                        duration: 0.2,
-                        ease: "easeOut",
-                        opacity: { duration: 0.1 },
-                        scale: { duration: 0.15, ease: "easeOut" },
-                        clipPath: { duration: 0.2, ease: "easeOut" }
-                      }}
+                      transition={getMobileOptimizedTransition(0.15)}
                       className="w-12 h-12 flex items-center justify-center"
                     >
                       <div className="w-12 h-12 relative">
@@ -1493,21 +1509,13 @@ export default function Home() {
                     <motion.div
                       initial={{ 
                         opacity: 0,
-                        scale: 0,
-                        clipPath: 'circle(0% at 50% 50%)'
+                        scale: 0.8
                       }}
                       animate={{ 
                         opacity: 1,
-                        scale: 1,
-                        clipPath: 'circle(100% at 50% 50%)'
+                        scale: 1
                       }}
-                      transition={{ 
-                        duration: 0.2,
-                        ease: "easeOut",
-                        opacity: { duration: 0.1 },
-                        scale: { duration: 0.15, ease: "easeOut" },
-                        clipPath: { duration: 0.2, ease: "easeOut" }
-                      }}
+                      transition={getMobileOptimizedTransition(0.15)}
                       className="w-12 h-12 flex items-center justify-center"
                     >
                       <div className="w-12 h-12 relative">
@@ -1706,19 +1714,26 @@ function VictoryPopup({
     return isWinner ? 'text-yellow-300' : 'text-red-400'
   }
 
+  // Detect mobile device for optimized animations
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   return (
     <motion.div
-      initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-      animate={{ opacity: 1, backdropFilter: 'blur(8px)' }}
-      exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: isMobile ? 0.2 : 0.3 }}
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 50 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 50 }}
-        transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ 
+          duration: isMobile ? 0.2 : 0.3,
+          ease: "easeOut"
+        }}
         className="relative w-full max-w-md h-[600px] bg-cover bg-center rounded-2xl shadow-2xl overflow-hidden border-2 border-white/10"
         style={{ backgroundImage: getBackgroundImage() }}
         onClick={(e) => e.stopPropagation()}
@@ -1726,63 +1741,40 @@ function VictoryPopup({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         
         <div className="relative z-10 flex flex-col justify-end h-full p-6 text-white">
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+          <h1 
             className={`text-5xl font-black mb-4 tracking-tighter text-center ${getTitleColor()}`}
             style={{ textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}
           >
             {getTitle()}
-          </motion.h1>
+          </h1>
 
           {/* Player Profiles */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex items-center justify-around mb-4"
-          >
+          <div className="flex items-center justify-around mb-4">
             <PlayerAvatar player={victoryData.winnerProfile} isWinner={!victoryData.isDraw} />
             <div className="text-2xl font-black text-gray-400 px-2">VS</div>
             <PlayerAvatar player={victoryData.loserProfile} isWinner={false} />
-          </motion.div>
+          </div>
 
           {!victoryData.isDraw && (
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-center text-lg font-semibold mb-4"
-            >
+            <p className="text-center text-lg font-semibold mb-4">
               <span className="font-bold text-yellow-300">{victoryData.winnerProfile.name}</span> defeated <span className="opacity-80">{victoryData.loserProfile.name}</span>
-            </motion.p>
+            </p>
           )}
 
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="grid grid-cols-2 gap-4 mb-6 text-center"
-          >
-            <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+          <div className="grid grid-cols-2 gap-4 mb-6 text-center">
+            <div className="bg-white/10 rounded-xl p-3">
               <div className="text-3xl font-bold">{victoryData.multiplier}x</div>
               <div className="text-sm opacity-75">Multiplier</div>
             </div>
-            <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white/10 rounded-xl p-3">
               <div className="text-3xl font-bold">
                 {isWinner ? `+${victoryData.pointsEarned}` : '0'}
               </div>
               <div className="text-sm opacity-75">Points Earned</div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="space-y-3"
-          >
+          <div className="space-y-3">
             {/* Farcaster Share Button */}
             {isInMiniApp && (
               <FarcasterActions 
@@ -1798,11 +1790,11 @@ function VictoryPopup({
             
             <button
               onClick={onClose}
-              className="w-full py-4 bg-white/90 hover:bg-white text-black rounded-xl font-bold text-lg transition-all duration-300 shadow-lg"
+              className="w-full py-4 bg-white/90 hover:bg-white text-black rounded-xl font-bold text-lg transition-colors duration-200 shadow-lg"
             >
               Continue
             </button>
-          </motion.div>
+          </div>
         </div>
       </motion.div>
     </motion.div>
@@ -1811,6 +1803,7 @@ function VictoryPopup({
 
 function PlayerAvatar({ player, isWinner }: { player: Player, isWinner: boolean }) {
   const avatarUrl = player.farcasterProfile?.avatar || player.xProfile?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.id}`
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   
   return (
     <div className="flex flex-col items-center text-center">
@@ -1821,13 +1814,9 @@ function PlayerAvatar({ player, isWinner }: { player: Player, isWinner: boolean 
           className={`w-24 h-24 rounded-full object-cover border-4 ${isWinner ? 'border-yellow-400' : 'border-gray-500'}`}
         />
         {isWinner && (
-          <motion.div 
-            className="absolute -top-2 -right-2 text-3xl"
-            animate={{ rotate: [0, 15, -15, 15, 0] }}
-            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-          >
+          <div className="absolute -top-2 -right-2 text-3xl animate-pulse">
             👑
-          </motion.div>
+          </div>
         )}
       </div>
       <p className="mt-2 font-bold text-sm w-28 truncate">{player.name}</p>
