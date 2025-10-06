@@ -15,10 +15,17 @@ import {
   Zap
 } from 'lucide-react'
 import { useConnect } from 'wagmi'
-// Temporarily disable Privy import due to React context issues
-// import { usePrivy } from '@privy-io/react-auth'
 import { useFarcaster } from './FarcasterProvider'
 import SimpleWalletConnect from './SimpleWalletConnect'
+
+// Conditionally import Privy if available
+let usePrivy: any = null
+try {
+  const privyModule = require('@privy-io/react-auth')
+  usePrivy = privyModule.usePrivy
+} catch (error) {
+  console.log('Privy not available, social login features will be disabled')
+}
 
 interface HybridAuthProps {
   onGuestLogin?: (name: string) => void
@@ -32,21 +39,11 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
   const [isLoading, setIsLoading] = useState(false)
   
   const { connect, connectors, isPending } = useConnect()
-  // Temporarily mock Privy hooks due to compatibility issues
-  const login = async () => {
-    console.log('Privy login temporarily disabled')
-    // Show user that social login will be available soon
-    alert('Social login coming soon! Use Base Account or Guest mode for now.')
-  }
-  const logout = async () => console.log('Logout')
-  const ready = true
-  const authenticated = false
-  const user = null
-  
-  // TODO: Re-enable when Privy compatibility is resolved
-  // const { login, logout, ready, authenticated, user } = usePrivy()
-  
   const { isInMiniApp, signIn: farcasterSignIn, user: farcasterUser } = useFarcaster()
+  
+  // Use Privy if available
+  const privyState = usePrivy ? usePrivy() : null
+  const { login: privyLogin, authenticated: privyAuthenticated, user: privyUser } = privyState || {}
 
   const baseAccountConnector = connectors.find(connector => connector.id === 'baseAccount')
   const injectedConnector = connectors.find(connector => connector.id === 'injected')
@@ -63,12 +60,23 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
   const handleSocialLogin = async (provider: string) => {
     setIsLoading(true)
     try {
-      await login()
-      if (user && onAuthSuccess) {
-        onAuthSuccess(user)
+      if (usePrivy && privyLogin) {
+        // Use Privy for social login
+        await privyLogin()
+        if (privyUser && onAuthSuccess) {
+          onAuthSuccess(privyUser)
+        }
+      } else {
+        // Fallback: Show coming soon message
+        setTimeout(() => {
+          alert(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login coming soon! Set up your Privy app ID to enable social logins.`)
+          setIsLoading(false)
+        }, 1000)
+        return
       }
     } catch (error) {
       console.error(`${provider} login failed:`, error)
+      alert(`Login failed. Please try again.`)
     } finally {
       setIsLoading(false)
     }
@@ -269,10 +277,11 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
           whileTap={{ scale: 0.98 }}
           onClick={() => handleSocialLogin('google')}
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+          className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 relative"
         >
           <Chrome className="w-4 h-4" />
           <span>Continue with Google</span>
+          {!usePrivy && <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs px-1 rounded">Setup</span>}
         </motion.button>
 
         <motion.button
@@ -280,10 +289,11 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
           whileTap={{ scale: 0.98 }}
           onClick={() => handleSocialLogin('twitter')}
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+          className="w-full bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 relative"
         >
           <Twitter className="w-4 h-4" />
           <span>Continue with Twitter</span>
+          {!usePrivy && <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs px-1 rounded">Setup</span>}
         </motion.button>
 
         <motion.button
@@ -291,10 +301,11 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
           whileTap={{ scale: 0.98 }}
           onClick={() => handleSocialLogin('email')}
           disabled={isLoading}
-          className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+          className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 relative"
         >
           <Mail className="w-4 h-4" />
           <span>Continue with Email</span>
+          {!usePrivy && <span className="absolute -top-1 -right-1 bg-yellow-400 text-black text-xs px-1 rounded">Setup</span>}
         </motion.button>
       </div>
 
@@ -306,9 +317,17 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
           <li>• Share achievements easily</li>
           <li>• Cross-platform compatibility</li>
         </ul>
-        <p className="text-xs text-gray-400 mt-2">
-          Powered by Privy for secure social authentication
-        </p>
+        {!usePrivy ? (
+          <div className="text-xs text-yellow-400 mt-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+            <p className="font-medium mb-1">🔧 Setup Required:</p>
+            <p>Add your Privy app ID to enable social logins:</p>
+            <code className="block mt-1 text-yellow-300">NEXT_PUBLIC_PRIVY_APP_ID=your_app_id</code>
+          </div>
+        ) : privyAuthenticated ? (
+          <p className="text-xs text-green-400 mt-2 font-medium">
+            ✅ Connected via Privy!
+          </p>
+        ) : null}
       </div>
     </motion.div>
   )
