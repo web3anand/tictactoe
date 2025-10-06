@@ -14,13 +14,26 @@ model User {
   id            String    @id @default(cuid())
   walletAddress String?   @unique
   name          String
+  email         String?   @unique
+  
+  // Social profiles
   xProfile      Json?     // Store X profile data as JSON
+  googleProfile Json?     // Google profile data
+  
+  // Farcaster integration
   farcasterFid  Int?      @unique // Farcaster user ID
   farcasterProfile Json?  // Store Farcaster profile data
   farcasterMiniappAdded Boolean @default(false) // Track if user added the miniapp
+  
+  // Authentication method tracking
+  authMethod    String    @default("guest") // "guest", "wallet", "google", "twitter", "email", "farcaster"
+  isGuest       Boolean   @default(true)
+  
+  // Game stats
   points        Int       @default(0)
   gamesPlayed   Int       @default(0)
   gamesWon      Int       @default(0)
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   

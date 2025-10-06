@@ -4,6 +4,7 @@ import React from 'react'
 import './globals.css'
 import WalletProvider from '@/components/WalletProvider'
 import { FarcasterProvider } from '@/components/FarcasterProvider'
+import AuthProvider from '@/components/AuthProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -46,13 +47,15 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.className} overflow-x-hidden dark`}>
-        <FarcasterProvider>
-          <WalletProvider>
-            <div className="min-h-screen">
-              {children}
-            </div>
-          </WalletProvider>
-        </FarcasterProvider>
+        <AuthProvider>
+          <FarcasterProvider>
+            <WalletProvider>
+              <div className="min-h-screen">
+                {children}
+              </div>
+            </WalletProvider>
+          </FarcasterProvider>
+        </AuthProvider>
       </body>
     </html>
   )

@@ -38,7 +38,7 @@ import Leaderboard from '@/components/Leaderboard'
 import PointsDisplay from '@/components/PointsDisplay'
 import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
-import SimpleWalletConnect from '@/components/SimpleWalletConnect'
+import HybridAuth from '@/components/HybridAuth'
 import { FarcasterActions, FarcasterAuthButton } from '@/components/FarcasterActions'
 import { useFarcaster } from '@/components/FarcasterProvider'
 import { createBotPlayer, getBotMove } from '@/lib/bot-player'
@@ -1010,7 +1010,13 @@ export default function Home() {
             )}
           </div>
 
-          <SimpleWalletConnect onGuestLogin={handleGuestLogin} />
+          <HybridAuth 
+            onGuestLogin={handleGuestLogin}
+            onAuthSuccess={(user: any) => {
+              console.log('Auth success:', user)
+              // Handle authentication success here
+            }}
+          />
         </motion.div>
       </div>
     )
