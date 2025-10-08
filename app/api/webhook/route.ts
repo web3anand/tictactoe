@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
   }
   
   return NextResponse.json({ 
-    status: 'TicTacToe Pro Farcaster Webhook Endpoint',
+    status: 'Basetok Farcaster Webhook Endpoint',
     version: '1.0',
     features: ['miniapp_added', 'miniapp_removed', 'notifications_enabled', 'notifications_disabled']
   })

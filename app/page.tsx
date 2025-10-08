@@ -137,6 +137,16 @@ export default function Home() {
     }
   }, [isConnected, address, player, hasManuallyLoggedOut])
 
+  // Auto-login if Farcaster user is available (but not if user manually logged out)
+  useEffect(() => {
+    if (farcasterUser && !player && !hasManuallyLoggedOut && !isConnected) {
+      // Create player from Farcaster data only if no wallet is connected
+      const farcasterName = farcasterUser.displayName || farcasterUser.username || `FC_${farcasterUser.fid}`
+      console.log('🎯 Auto-login with Farcaster user:', farcasterName)
+      createPlayer(farcasterName)
+    }
+  }, [farcasterUser, player, hasManuallyLoggedOut, isConnected])
+
   const createPlayer = async (name: string) => {
     console.log('👤 Creating/loading player:', name)
     
@@ -536,13 +546,6 @@ export default function Home() {
 
       // Streak bonus
       if (gameState.streak > 0) multiplier += gameState.streak * 0.5
-
-      // X Ethos score bonus
-      if (player?.xProfile?.ethosScore) {
-        const ethosBonus = (player.xProfile.ethosScore / 100) * 0.5
-        multiplier += ethosBonus
-        console.log('🐦 X Ethos bonus applied:', ethosBonus, 'from score:', player.xProfile.ethosScore)
-      }
     }
 
     setGameState({
@@ -616,8 +619,7 @@ export default function Home() {
         body: JSON.stringify({
           playerId: player.id,
           playerName: player.name,
-          walletAddress: player.walletAddress,
-          xProfile: player.xProfile
+          walletAddress: player.walletAddress
         })
       })
 
@@ -667,8 +669,7 @@ export default function Home() {
           roomCode: roomCode.trim(),
           playerId: player.id,
           playerName: player.name,
-          walletAddress: player.walletAddress,
-          xProfile: player.xProfile
+          walletAddress: player.walletAddress
         })
       })
 
@@ -1002,7 +1003,7 @@ export default function Home() {
         >
           <div className="text-center">
             <Crown className="w-16 h-16 text-brand mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-foreground mb-2">TicTacToe Pro</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Basetok</h1>
             <p className="text-lg text-muted-foreground mb-2">Strategic XO with Multipliers</p>
             <p className="text-sm text-muted-foreground">Get started to play!</p>
             {hasManuallyLoggedOut && (
@@ -1013,8 +1014,23 @@ export default function Home() {
           <HybridAuth 
             onGuestLogin={handleGuestLogin}
             onAuthSuccess={(user: any) => {
-              console.log('Auth success:', user)
-              // Handle authentication success here
+              console.log('🎯 Farcaster auth success:', user)
+              
+              // Extract user info from Farcaster response
+              const farcasterName = user.displayName || user.username || `Farcaster User`
+              const farcasterAddress = user.custody || user.verifications?.[0] || null
+              
+              // Set auth state
+              setHasManuallyLoggedOut(false)
+              
+              // Create player with Farcaster info
+              createPlayer(farcasterName)
+              
+              console.log('✅ Farcaster user logged in:', {
+                name: farcasterName,
+                address: farcasterAddress,
+                fid: user.fid
+              })
             }}
           />
         </motion.div>
@@ -1037,7 +1053,7 @@ export default function Home() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Crown className="w-6 h-6 text-yellow-400" />
-                <h1 className="text-lg font-bold text-foreground">TicTacToe Pro</h1>
+                <h1 className="text-lg font-bold text-foreground">Basetok</h1>
               </div>
               <div className="flex items-center space-x-2">
                 <button
@@ -1808,7 +1824,7 @@ function VictoryPopup({
 }
 
 function PlayerAvatar({ player, isWinner }: { player: Player, isWinner: boolean }) {
-  const avatarUrl = player.farcasterProfile?.avatar || player.xProfile?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.id}`
+  const avatarUrl = player.farcasterProfile?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.id}`
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   
   return (

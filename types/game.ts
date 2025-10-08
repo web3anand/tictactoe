@@ -8,14 +8,6 @@ export interface Player {
   gamesWon: number
   difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
   walletAddress?: string
-  xProfile?: {
-    username: string
-    displayName: string
-    avatar: string
-    ethosScore: number
-    verified?: boolean
-    source?: string
-  }
   farcasterProfile?: {
     fid: number
     username: string

@@ -1,5 +1,5 @@
 {
-  "name": "tictactoe-miniapp",
+  "name": "basetok",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -20,11 +20,11 @@
   "dependencies": {
     "@base-org/account": "^2.3.1",
     "@coinbase/onchainkit": "^1.1.0",
+    "@farcaster/auth-kit": "^0.8.1",
+    "@farcaster/core": "^0.18.8",
     "@farcaster/miniapp-node": "^0.1.9",
     "@farcaster/miniapp-sdk": "^0.1.10",
     "@prisma/client": "^6.16.2",
-    "@privy-io/react-auth": "^3.0.1",
-    "@privy-io/wagmi-connector": "^0.1.13",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "@tanstack/react-query": "^5.90.2",
@@ -38,6 +38,7 @@
     "prisma": "^6.16.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "siwe": "^3.0.0",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "tailwindcss-animate": "^1.0.7",

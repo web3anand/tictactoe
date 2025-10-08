@@ -13,7 +13,7 @@ const port = parseInt(process.env.PORT || '3001', 10)
 const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 
-console.log('🔧 Starting TicTacToe Pro Server...')
+console.log('🔧 Starting Basetok Server...')
 
 // Check environment configuration
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -67,7 +67,7 @@ app.prepare().then(() => {
   }
 
   server.listen(port, () => {
-    console.log(`🚀 TicTacToe Pro Server ready on http://${hostname}:${port}`)
+    console.log(`🚀 Basetok Server ready on http://${hostname}:${port}`)
     console.log(`📊 Health check available at http://${hostname}:${port}/health`)
     
     if (!supabaseConfigured) {
