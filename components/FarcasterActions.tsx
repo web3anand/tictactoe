@@ -3,7 +3,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { Share2, Plus, Cast } from 'lucide-react'
-import { useFarcaster } from './FarcasterProvider'
+import { useProfile } from '@farcaster/auth-kit'
 
 interface FarcasterActionsProps {
   gameData?: {
@@ -16,34 +16,20 @@ interface FarcasterActionsProps {
 }
 
 export function FarcasterActions({ gameData, className = '' }: FarcasterActionsProps) {
-  const { isInMiniApp, composeCast, addMiniApp } = useFarcaster()
+  const { isAuthenticated, profile } = useProfile()
+  
+  // For now, we'll disable Farcaster actions since we need Mini App SDK for composeCast
+  // This will be re-enabled when we have proper Mini App environment detection
+  const isInMiniApp = false
 
-  if (!isInMiniApp) {
-    return null // Only show in Farcaster Mini App
+  if (!isInMiniApp || !isAuthenticated) {
+    return null // Only show in Farcaster Mini App when authenticated
   }
 
   const handleShareGame = async () => {
     try {
-      let text = "Just played TicTacToe Pro! 🎮"
-      let embeds: [string] = ["https://tictactoe-pro-vercel.app"]
-
-      if (gameData) {
-        if (gameData.won) {
-          text = `Just won a game of TicTacToe Pro! 🏆 Scored ${gameData.score} points`
-        } else {
-          text = `Just finished an epic TicTacToe Pro match! 🎯 Scored ${gameData.score} points`
-        }
-        
-        if (gameData.gameId) {
-          embeds = [`https://tictactoe-pro-vercel.app/game/${gameData.gameId}`]
-        }
-      }
-
-      await composeCast({
-        text,
-        embeds,
-        channelKey: "gaming"
-      })
+      // This would use Mini App SDK composeCast in real Mini App environment
+      console.log('Share game action (Mini App only)')
     } catch (error) {
       console.error('Failed to share game:', error)
     }
@@ -51,7 +37,8 @@ export function FarcasterActions({ gameData, className = '' }: FarcasterActionsP
 
   const handleAddToFarcaster = async () => {
     try {
-      await addMiniApp()
+      // This would use Mini App SDK addMiniApp in real Mini App environment
+      console.log('Add to Farcaster action (Mini App only)')
     } catch (error) {
       console.error('Failed to add Mini App:', error)
     }
@@ -88,32 +75,19 @@ interface FarcasterAuthButtonProps {
 }
 
 export function FarcasterAuthButton({ onSuccess, className = '' }: FarcasterAuthButtonProps) {
-  const { isInMiniApp, signIn, user } = useFarcaster()
+  const { isAuthenticated, profile } = useProfile()
 
-  if (!isInMiniApp || user) {
+  // Auth is now handled by AuthKitProvider, so this button is not needed
+  if (isAuthenticated && profile) {
     return null
   }
 
-  const handleSignIn = async () => {
-    try {
-      const result = await signIn()
-      if (onSuccess) {
-        onSuccess(result)
-      }
-    } catch (error) {
-      console.error('Farcaster sign in failed:', error)
-    }
-  }
-
   return (
-    <motion.button
-      onClick={handleSignIn}
-      className={`flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg text-white font-semibold transition-all ${className}`}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <motion.div
+      className={`flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-white font-semibold ${className}`}
     >
       <Cast size={20} />
-      Sign In with Farcaster
-    </motion.button>
+      <span className="text-sm">Sign in handled by Auth Kit</span>
+    </motion.div>
   )
 }

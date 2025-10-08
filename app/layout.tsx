@@ -3,8 +3,10 @@ import { Inter } from 'next/font/google'
 import React from 'react'
 import './globals.css'
 import WalletProvider from '@/components/WalletProvider'
-import { FarcasterProvider } from '@/components/FarcasterProvider'
+import AuthKitProvider from '@/components/AuthKitProvider'
 import AuthProvider from '@/components/AuthProvider'
+import ErrorSuppression from '@/components/ErrorSuppression'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -48,16 +50,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://auth.farcaster.xyz" />
+      </head>
       <body className={`${inter.className} overflow-x-hidden dark`}>
-        <AuthProvider>
-          <FarcasterProvider>
-            <WalletProvider>
-              <div className="min-h-screen">
-                {children}
-              </div>
-            </WalletProvider>
-          </FarcasterProvider>
-        </AuthProvider>
+        <ErrorSuppression />
+        <ErrorBoundary>
+          <AuthProvider>
+            <AuthKitProvider>
+              <WalletProvider>
+                <div className="min-h-screen">
+                  {children}
+                </div>
+              </WalletProvider>
+            </AuthKitProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

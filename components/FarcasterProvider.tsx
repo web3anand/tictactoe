@@ -91,23 +91,93 @@ export function FarcasterProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signIn = async () => {
-    if (!isInMiniApp) {
-      throw new Error('Sign In with Farcaster only available in Mini App')
+    // Development mode: allow testing without Mini App environment
+    const isDevelopment = process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost'
+    
+    if (!isInMiniApp && !isDevelopment) {
+      throw new Error('Quick Auth only available in Mini App')
     }
 
     try {
-      // Generate a secure nonce (in production, get this from your backend)
-      const nonce = `nonce-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-      
-      const result = await sdk.actions.signIn({ 
-        nonce,
-        acceptAuthAddress: true 
-      })
-      
-      console.log('✅ Farcaster sign in successful:', result)
-      return result
+      if (isInMiniApp) {
+        // Production: Use Quick Auth to get a session token
+        const { token } = await sdk.quickAuth.getToken()
+        
+        if (!token) {
+          throw new Error('Failed to get authentication token')
+        }
+
+        console.log('✅ Quick Auth token obtained')
+        
+        // Make an authenticated request to get user data
+        const response = await sdk.quickAuth.fetch('/api/auth/me')
+        
+        if (!response.ok) {
+          throw new Error(`Authentication failed: ${response.status}`)
+        }
+        
+        const userData = await response.json()
+        console.log('✅ Authenticated user data:', userData)
+        
+        return userData
+      } else if (isDevelopment) {
+        // Development fallback: allow testing with real user data
+        console.log('🔧 Development mode: testing Farcaster authentication')
+        
+        // Check if there are dev environment variables for real user testing
+        const devFid = process.env.NEXT_PUBLIC_DEV_FARCASTER_FID
+        const devUsername = process.env.NEXT_PUBLIC_DEV_FARCASTER_USERNAME
+        
+        if (devFid && devUsername) {
+          // Use real Farcaster user data from environment variables
+          try {
+            // Fetch real user data from Farcaster API
+            const userResponse = await fetch(
+              `https://api.farcaster.xyz/fc/user-by-fid?fid=${devFid}`
+            )
+            
+            if (userResponse.ok) {
+              const userData = await userResponse.json()
+              const user = userData.result?.user
+              
+              const realUserData = {
+                fid: parseInt(devFid),
+                username: user?.username || devUsername,
+                displayName: user?.displayName || devUsername,
+                pfpUrl: user?.pfp?.url,
+                bio: user?.profile?.bio?.text,
+                verifications: user?.verifications || [],
+                followerCount: user?.followerCount || 0,
+                followingCount: user?.followingCount || 0,
+                primaryAddress: undefined // Would need separate API call
+              }
+              
+              console.log('✅ Development authentication with real user data:', realUserData)
+              return realUserData
+            }
+          } catch (error) {
+            console.warn('Failed to fetch real user data, using mock data:', error)
+          }
+        }
+        
+        // Fallback to mock data if no real user credentials provided
+        const mockUserData = {
+          fid: 12345,
+          username: 'dev_user',
+          displayName: 'Development User',
+          pfpUrl: 'https://i.imgur.com/placeholder.png',
+          bio: 'Development test user',
+          verifications: [],
+          followerCount: 100,
+          followingCount: 50,
+          primaryAddress: '0x1234567890123456789012345678901234567890'
+        }
+        
+        console.log('✅ Development authentication with mock data:', mockUserData)
+        return mockUserData
+      }
     } catch (error) {
-      console.error('❌ Farcaster sign in failed:', error)
+      console.error('❌ Authentication failed:', error)
       throw error
     }
   }

@@ -40,7 +40,7 @@ import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
 import HybridAuth from '@/components/HybridAuth'
 import { FarcasterActions, FarcasterAuthButton } from '@/components/FarcasterActions'
-import { useFarcaster } from '@/components/FarcasterProvider'
+import { useProfile } from '@farcaster/auth-kit'
 import { createBotPlayer, getBotMove } from '@/lib/bot-player'
 import { Player, GameState } from '@/types/game'
 
@@ -65,7 +65,9 @@ export default function Home() {
   const { disconnect } = useDisconnect()
   
   // Farcaster integration
-  const { isInMiniApp, user: farcasterUser, isReady, client } = useFarcaster()
+  const { isAuthenticated, profile: farcasterUser } = useProfile()
+  const isInMiniApp = false // For now, we'll handle Mini App detection differently
+  const isReady = true // Auth Kit handles readiness internally
 
   // Game state
   const [gameMode, setGameMode] = useState<'menu' | 'multiplayer' | 'singleplayer'>('menu')
@@ -1718,7 +1720,8 @@ function VictoryPopup({
   currentPlayer: Player | null
   onClose: () => void 
 }) {
-  const { isInMiniApp } = useFarcaster()
+  const { isAuthenticated } = useProfile()
+  const isInMiniApp = false // We'll handle Mini App detection differently
   const isWinner = !victoryData.isDraw && currentPlayer?.id === victoryData.winnerProfile.id
   
   const getBackgroundImage = () => {
