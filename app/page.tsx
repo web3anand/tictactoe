@@ -16,9 +16,12 @@ import {
   RefreshCw, 
   Copy,
   User,
-  ArrowLeft
+  ArrowLeft,
+  Shield
 } from 'lucide-react'
 import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import PrivyAuth from '@/components/PrivyAuth'
+import SimpleAuth from '@/components/SimpleAuth'
 
 // Mobile performance optimization utilities
 const getMobileOptimizedTransition = (duration = 0.3) => ({
@@ -38,9 +41,7 @@ import Leaderboard from '@/components/Leaderboard'
 import PointsDisplay from '@/components/PointsDisplay'
 import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
-import HybridAuth from '@/components/HybridAuth'
 import { FarcasterActions, FarcasterAuthButton } from '@/components/FarcasterActions'
-import { useProfile } from '@farcaster/auth-kit'
 import { createBotPlayer, getBotMove } from '@/lib/bot-player'
 import { Player, GameState } from '@/types/game'
 
@@ -64,10 +65,9 @@ export default function Home() {
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   
-  // Farcaster integration
-  const { isAuthenticated, profile: farcasterUser } = useProfile()
-  const isInMiniApp = false // For now, we'll handle Mini App detection differently
-  const isReady = true // Auth Kit handles readiness internally
+  // Privy authentication state
+  const [isPrivyAuthenticated, setIsPrivyAuthenticated] = useState(false)
+  const [privyUserData, setPrivyUserData] = useState<any>(null)
 
   // Game state
   const [gameMode, setGameMode] = useState<'menu' | 'multiplayer' | 'singleplayer'>('menu')
@@ -139,26 +139,19 @@ export default function Home() {
     }
   }, [isConnected, address, player, hasManuallyLoggedOut])
 
-  // Auto-login if Farcaster user is available (but not if user manually logged out)
-  useEffect(() => {
-    if (farcasterUser && !player && !hasManuallyLoggedOut && !isConnected) {
-      // Create player from Farcaster data only if no wallet is connected
-      const farcasterName = farcasterUser.displayName || farcasterUser.username || `FC_${farcasterUser.fid}`
-      console.log('🎯 Auto-login with Farcaster user:', farcasterName)
-      createPlayer(farcasterName)
-    }
-  }, [farcasterUser, player, hasManuallyLoggedOut, isConnected])
+  // Removed problematic auto-login to prevent FC_undefined issues
 
-  const createPlayer = async (name: string) => {
-    console.log('👤 Creating/loading player:', name)
+  const createPlayer = async (name: string, privyData?: any) => {
+    console.log('👤 Creating/loading player:', name, privyData)
     
     // Reset the manual logout flag when creating a player
     setHasManuallyLoggedOut(false)
     
     let newPlayer: Player
+    const walletAddr = privyData?.wallet || address
     
     // If wallet is connected, try to load/create from leaderboard API first
-    if (address) {
+    if (walletAddr) {
       try {
         // First, try to get existing player data from leaderboard
         const leaderboardResponse = await fetch('/api/leaderboard')
@@ -167,7 +160,7 @@ export default function Home() {
           if (leaderboardData.success && leaderboardData.leaderboard) {
             // Look for existing player by wallet address
             const existingPlayer = leaderboardData.leaderboard.find((p: any) => 
-              p.wallet_address === address
+              p.wallet_address === walletAddr
             )
             
             if (existingPlayer) {
@@ -178,7 +171,8 @@ export default function Home() {
                 points: existingPlayer.total_points || 0,
                 gamesPlayed: existingPlayer.games_played || 0,
                 gamesWon: existingPlayer.games_won || 0,
-                walletAddress: address
+                walletAddress: walletAddr,
+                privyProfile: privyData || null
               }
               setPlayer(newPlayer)
               localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
@@ -194,7 +188,7 @@ export default function Home() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            walletAddress: address,
+            walletAddress: walletAddr,
             name: name,
             points: 0,
             gamesPlayed: 0,
@@ -213,7 +207,8 @@ export default function Home() {
               points: createData.player.points || 0,
               gamesPlayed: createData.player.gamesPlayed || 0,
               gamesWon: createData.player.gamesWon || 0,
-              walletAddress: address
+              walletAddress: walletAddr,
+              privyProfile: privyData || null
             }
             setPlayer(newPlayer)
             localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
@@ -233,7 +228,10 @@ export default function Home() {
     
     if (existingPlayer) {
       // Restore existing player
-      newPlayer = existingPlayer
+      newPlayer = {
+        ...existingPlayer,
+        privyProfile: privyData || existingPlayer.privyProfile
+      }
     } else {
       // Create new player
       newPlayer = {
@@ -242,7 +240,8 @@ export default function Home() {
         points: 0,
         gamesPlayed: 0,
         gamesWon: 0,
-        walletAddress: address
+        walletAddress: walletAddr,
+        privyProfile: privyData || null
       }
       // Save to all players
       allSavedPlayers[name] = newPlayer
@@ -254,6 +253,32 @@ export default function Home() {
     
     // Update leaderboard
     updateLeaderboard()
+  }
+
+  // Handle Privy authentication
+  const handlePrivyAuthenticated = (userData: any) => {
+    console.log('🔐 Privy authentication successful:', userData)
+    setIsPrivyAuthenticated(true)
+    setPrivyUserData(userData)
+    
+    // Create player name from Privy data
+    let playerName = 'Anonymous Player'
+    if (userData.farcaster?.username) {
+      playerName = `@${userData.farcaster.username}`
+    } else if (userData.email) {
+      playerName = userData.email.split('@')[0]
+    } else if (userData.wallet) {
+      playerName = `Player_${userData.wallet.slice(0, 6)}`
+    }
+    
+    createPlayer(playerName, userData)
+  }
+
+  const handlePrivyLogout = () => {
+    console.log('🚪 Privy logout initiated')
+    setIsPrivyAuthenticated(false)
+    setPrivyUserData(null)
+    handleLogout()
   }
 
   const handleGuestLogin = (name: string) => {
@@ -364,6 +389,10 @@ export default function Home() {
         disconnect()
       }
       
+      // Clear Privy state
+      setIsPrivyAuthenticated(false)
+      setPrivyUserData(null)
+      
       // Set manual logout flag to prevent auto-login
       setHasManuallyLoggedOut(true)
       
@@ -394,6 +423,8 @@ export default function Home() {
       setPlayer(null)
       setGameMode('menu')
       setHasManuallyLoggedOut(true)
+      setIsPrivyAuthenticated(false)
+      setPrivyUserData(null)
       if (isConnected) {
         disconnect()
       }
@@ -994,7 +1025,7 @@ export default function Home() {
     return multiplier
   }
 
-  // If no player, show login (allow both wallet and guest)
+  // If no player, show login (now with Privy integration)
   if (!player) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -1005,36 +1036,16 @@ export default function Home() {
         >
           <div className="text-center">
             <Crown className="w-16 h-16 text-brand mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-foreground mb-2">Basetok</h1>
-            <p className="text-lg text-muted-foreground mb-2">Strategic XO with Multipliers</p>
-            <p className="text-sm text-muted-foreground">Get started to play!</p>
-            {hasManuallyLoggedOut && (
-              <p className="text-xs text-yellow-400 mt-2">Ready for a new session!</p>
-            )}
+            <h1 className="text-3xl font-bold text-foreground mb-6">Basetok</h1>
           </div>
 
-          <HybridAuth 
-            onGuestLogin={handleGuestLogin}
-            onAuthSuccess={(user: any) => {
-              console.log('🎯 Farcaster auth success:', user)
-              
-              // Extract user info from Farcaster response
-              const farcasterName = user.displayName || user.username || `Farcaster User`
-              const farcasterAddress = user.custody || user.verifications?.[0] || null
-              
-              // Set auth state
-              setHasManuallyLoggedOut(false)
-              
-              // Create player with Farcaster info
-              createPlayer(farcasterName)
-              
-              console.log('✅ Farcaster user logged in:', {
-                name: farcasterName,
-                address: farcasterAddress,
-                fid: user.fid
-              })
-            }}
-          />
+          <div className="space-y-4">
+            {/* Only Privy Authentication with "Play" button */}
+            <PrivyAuth 
+              onAuthenticated={handlePrivyAuthenticated}
+              onLogout={handlePrivyLogout}
+            />
+          </div>
         </motion.div>
       </div>
     )
@@ -1093,9 +1104,19 @@ export default function Home() {
                   </button>
                 </div>
               </div>
+              {/* Show authentication status */}
+              {isPrivyAuthenticated && privyUserData && (
+                <div className="flex items-center space-x-2 mt-1">
+                  <Shield className="w-4 h-4 text-green-500" />
+                  <span className="text-xs text-green-400">Privy Connected</span>
+                  {privyUserData.farcaster && (
+                    <span className="text-xs text-purple-400">@{privyUserData.farcaster.username}</span>
+                  )}
+                </div>
+              )}
               {player.walletAddress && (
                 <div className="flex items-center space-x-2 mt-1">
-                  <User className="w-4 h-4 text-green-500" />
+                  <User className="w-4 h-4 text-blue-500" />
                   <span className="text-xs text-muted-foreground">
                     {player.walletAddress.slice(0, 6)}...{player.walletAddress.slice(-4)}
                   </span>
@@ -1143,28 +1164,7 @@ export default function Home() {
             </button>
           </motion.div>
 
-          {/* Farcaster Actions */}
-          {isInMiniApp && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mb-6"
-            >
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 text-center">
-                <h3 className="text-sm font-semibold text-purple-300 mb-2">Farcaster Mini App</h3>
-                <FarcasterActions className="justify-center" />
-                {!farcasterUser && (
-                  <div className="mt-3">
-                    <FarcasterAuthButton onSuccess={(result) => {
-                      console.log('Farcaster auth success:', result)
-                      // Optionally integrate with your user system
-                    }} />
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
+          {/* Removed Farcaster Actions - will add Privy social features later */}
 
           {/* Modals */}
           <AnimatePresence>
@@ -1720,7 +1720,7 @@ function VictoryPopup({
   currentPlayer: Player | null
   onClose: () => void 
 }) {
-  const { isAuthenticated } = useProfile()
+  // Removed useProfile - will replace with Privy
   const isInMiniApp = false // We'll handle Mini App detection differently
   const isWinner = !victoryData.isDraw && currentPlayer?.id === victoryData.winnerProfile.id
   
@@ -1800,18 +1800,7 @@ function VictoryPopup({
           </div>
 
           <div className="space-y-3">
-            {/* Farcaster Share Button */}
-            {isInMiniApp && (
-              <FarcasterActions 
-                gameData={{
-                  gameId: 'victory',
-                  won: isWinner,
-                  score: victoryData.pointsEarned,
-                  opponent: isWinner ? victoryData.loserProfile.name : victoryData.winnerProfile.name
-                }}
-                className="w-full justify-center mb-3"
-              />
-            )}
+            {/* Removed Farcaster Share - will add Privy social sharing later */}
             
             <button
               onClick={onClose}

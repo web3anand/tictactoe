@@ -26,6 +26,8 @@
     "@farcaster/miniapp-sdk": "^0.1.10",
     "@farcaster/quick-auth": "^0.0.8",
     "@prisma/client": "^6.16.2",
+    "@privy-io/react-auth": "^3.1.0",
+    "@privy-io/wagmi-connector": "^0.1.13",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "@tanstack/react-query": "^5.90.2",

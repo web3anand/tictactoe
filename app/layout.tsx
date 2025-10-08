@@ -3,8 +3,7 @@ import { Inter } from 'next/font/google'
 import React from 'react'
 import './globals.css'
 import WalletProvider from '@/components/WalletProvider'
-import AuthKitProvider from '@/components/AuthKitProvider'
-import AuthProvider from '@/components/AuthProvider'
+import PrivyWrapper from '@/components/PrivyWrapper'
 import ErrorSuppression from '@/components/ErrorSuppression'
 import ErrorBoundary from '@/components/ErrorBoundary'
 
@@ -19,14 +18,14 @@ export const metadata: Metadata = {
     'fc:frame:manifest': '/.well-known/farcaster.json',
     'fc:miniapp': JSON.stringify({
       version: "1",
-      imageUrl: "https://tictactoe-three-eta.vercel.app/og-image.svg",
+      imageUrl: "https://basetok.fun/og-image.svg",
       button: {
         title: "🎮 Play Basetok",
         action: {
           type: "launch_miniapp",
           name: "Basetok",
-          url: "https://tictactoe-three-eta.vercel.app",
-          splashImageUrl: "https://tictactoe-three-eta.vercel.app/splash.svg",
+          url: "https://basetok.fun",
+          splashImageUrl: "https://basetok.fun/splash.svg",
           splashBackgroundColor: "#000000"
         }
       }
@@ -51,20 +50,18 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://auth.farcaster.xyz" />
+        {/* Removed Farcaster preconnect - will add Privy links when ready */}
       </head>
       <body className={`${inter.className} overflow-x-hidden dark`}>
         <ErrorSuppression />
         <ErrorBoundary>
-          <AuthProvider>
-            <AuthKitProvider>
-              <WalletProvider>
-                <div className="min-h-screen">
-                  {children}
-                </div>
-              </WalletProvider>
-            </AuthKitProvider>
-          </AuthProvider>
+          <PrivyWrapper>
+            <WalletProvider>
+              <div className="min-h-screen">
+                {children}
+              </div>
+            </WalletProvider>
+          </PrivyWrapper>
         </ErrorBoundary>
       </body>
     </html>

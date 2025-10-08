@@ -5,7 +5,7 @@ Disallow: /api/
 Disallow: /admin/
 
 # Host
-Host: https://tictactoe-three-eta.vercel.app/
+Host: https://basetok.fun/
 
 # Sitemaps
-Sitemap: https://tictactoe-three-eta.vercel.app/sitemap.xml
+Sitemap: https://basetok.fun/sitemap.xml

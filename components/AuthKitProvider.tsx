@@ -4,11 +4,14 @@ import '@farcaster/auth-kit/styles.css'
 import { AuthKitProvider as FarcasterAuthKitProvider } from '@farcaster/auth-kit'
 
 const config = {
-  // For development
-  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org',
-  domain: process.env.HOSTNAME || 'localhost:3001',
-  siweUri: process.env.NEXT_PUBLIC_ROOT_URL || 'http://localhost:3001',
+  // Simplified config for development
+  rpcUrl: 'https://mainnet.optimism.io', // Use Optimism for better Auth Kit compatibility
+  domain: typeof window !== 'undefined' ? window.location.host : 'localhost:3002',
+  siweUri: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3002',
   relay: 'https://relay.farcaster.xyz',
+  // Add these to reduce errors
+  version: '1',
+  chainId: 10, // Optimism mainnet
 }
 
 export default function AuthKitProvider({ children }: { children: React.ReactNode }) {

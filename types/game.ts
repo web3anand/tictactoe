@@ -19,6 +19,14 @@ export interface Player {
     verified?: boolean
     source?: string
   }
+  privyProfile?: {
+    id: string
+    email?: string
+    wallet?: string
+    farcaster?: any
+    twitter?: any
+    google?: any
+  }
 }
 
 export interface GameState {

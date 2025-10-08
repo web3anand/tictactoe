@@ -1,6 +1,6 @@
 'use client'
 
-import { useSignIn, useProfile } from '@farcaster/auth-kit'
+import { useSignIn, useProfile, SignInButton } from '@farcaster/auth-kit'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Check, User, Cast, Loader2 } from 'lucide-react'
@@ -13,6 +13,7 @@ interface FarcasterAuthKitLoginProps {
 export default function FarcasterAuthKitLogin({ onSuccess, onError }: FarcasterAuthKitLoginProps) {
   const [hasCallbackFired, setHasCallbackFired] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [useBuiltInButton, setUseBuiltInButton] = useState(false)
   
   const {
     signIn,
@@ -38,7 +39,7 @@ export default function FarcasterAuthKitLogin({ onSuccess, onError }: FarcasterA
 
   // Handle successful authentication
   useEffect(() => {
-    if (isSuccess && isAuthenticated && profile && signInData && !hasCallbackFired) {
+    if (isSuccess && isAuthenticated && profile && profile.fid && signInData && !hasCallbackFired) {
       // Format the profile data for our app
       const userData = {
         fid: profile.fid,
@@ -53,8 +54,14 @@ export default function FarcasterAuthKitLogin({ onSuccess, onError }: FarcasterA
         nonce: signInData.nonce
       }
 
-      setHasCallbackFired(true)
-      onSuccess(userData)
+      // Only proceed if we have proper authentication data
+      if (userData.fid && (userData.username || userData.displayName)) {
+        console.log('✅ Farcaster authentication successful:', userData);
+        setHasCallbackFired(true)
+        onSuccess(userData)
+      } else {
+        console.log('❌ Incomplete Farcaster data, not proceeding with login');
+      }
     }
   }, [isSuccess, isAuthenticated, profile, signInData, onSuccess, hasCallbackFired])
 
@@ -65,11 +72,24 @@ export default function FarcasterAuthKitLogin({ onSuccess, onError }: FarcasterA
 
   const handleSignIn = async () => {
     setIsLoading(true)
+    console.log('🔗 Starting Farcaster sign-in...')
+    
     try {
       await signIn()
+      console.log('📱 Farcaster sign-in initiated')
     } catch (err) {
+      console.error('❌ Sign-in error:', err)
       setIsLoading(false)
+      onError?.('Failed to start authentication')
     }
+    
+    // Add timeout protection
+    setTimeout(() => {
+      if (isLoading) {
+        console.log('⏰ Sign-in timeout, resetting loading state')
+        setIsLoading(false)
+      }
+    }, 30000) // 30 second timeout
   }
 
   // If user is already authenticated, show profile
@@ -117,20 +137,67 @@ export default function FarcasterAuthKitLogin({ onSuccess, onError }: FarcasterA
 
   return (
     <div className="space-y-3">
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={handleSignIn}
-        disabled={isLoading}
-        className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg"
-      >
-        {isLoading ? (
-          <Loader2 className="w-5 h-5 animate-spin" />
-        ) : (
-          <Cast className="w-5 h-5" />
-        )}
-        <span>{isLoading ? 'Connecting...' : 'Farcaster'}</span>
-      </motion.button>
+      {!useBuiltInButton ? (
+        <>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleSignIn}
+            disabled={isLoading}
+            className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 text-white font-medium py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg"
+          >
+            {isLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Cast className="w-5 h-5" />
+            )}
+            <span>{isLoading ? 'Connecting...' : 'Farcaster'}</span>
+          </motion.button>
+          
+          {isLoading && (
+            <div className="text-center">
+              <button
+                onClick={() => {
+                  setIsLoading(false)
+                  setUseBuiltInButton(true)
+                }}
+                className="text-xs text-purple-400 hover:text-purple-300 underline"
+              >
+                Try built-in button if stuck
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="space-y-3">
+          <SignInButton 
+            onSuccess={({ fid, username, bio, displayName, pfpUrl, custody, verifications }) => {
+              console.log('✅ Built-in SignInButton Success')
+              onSuccess({
+                fid,
+                username,
+                displayName,
+                pfpUrl,
+                bio,
+                custody,
+                verifications
+              })
+            }}
+            onError={(error) => {
+              console.error('❌ Built-in SignInButton Error:', error)
+              onError?.(error?.message || 'Authentication failed')
+            }}
+          />
+          <div className="text-center">
+            <button
+              onClick={() => setUseBuiltInButton(false)}
+              className="text-xs text-purple-400 hover:text-purple-300 underline"
+            >
+              ← Back to custom button
+            </button>
+          </div>
+        </div>
+      )}
 
       {isError && error && (
         <div className="text-center">

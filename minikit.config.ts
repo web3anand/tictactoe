@@ -1,4 +1,4 @@
-const ROOT_URL = process.env.NEXT_PUBLIC_ROOT_URL || 'https://tictactoe-r0jjcwrk4-web3anands-projects.vercel.app';
+const ROOT_URL = process.env.NEXT_PUBLIC_ROOT_URL || 'https://basetok.fun';
 
 export const minikitConfig = {
   // Account Association for Base verification

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useProfile } from '@farcaster/auth-kit';
 import SimpleWalletConnect from './SimpleWalletConnect';
-import FarcasterAuthKitLogin from './FarcasterAuthKitLogin';
+import SimpleFarcasterAuth from './SimpleFarcasterAuth';
 
 interface HybridAuthProps {
   onGuestLogin?: (name: string) => void;
@@ -29,22 +29,7 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
     setIsLoading(false);
   };
 
-  // Auto-trigger onAuthSuccess if user is already authenticated via Auth Kit
-  useEffect(() => {
-    if (isAuthenticated && profile && onAuthSuccess) {
-      // Format profile data for the app
-      const userData = {
-        fid: profile.fid,
-        username: profile.username,
-        displayName: profile.displayName,
-        pfpUrl: profile.pfpUrl,
-        bio: profile.bio,
-        verifications: profile.verifications || []
-      };
-      
-      handleFarcasterSuccess(userData);
-    }
-  }, [isAuthenticated, profile, onAuthSuccess]);
+  // Removed auto-authentication to prevent conflicts
 
   return (
     <motion.div
@@ -56,7 +41,7 @@ export default function HybridAuth({ onGuestLogin, onAuthSuccess }: HybridAuthPr
       <SimpleWalletConnect onGuestLogin={onGuestLogin} />
 
       {/* Farcaster Login */}
-      <FarcasterAuthKitLogin 
+      <SimpleFarcasterAuth 
         onSuccess={handleFarcasterSuccess}
         onError={handleFarcasterError}
       />
