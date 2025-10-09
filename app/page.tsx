@@ -5,13 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { 
   Trophy, 
-  Star, 
   Zap, 
   Users, 
   Crown, 
   Settings, 
   X, 
-  Bot, 
   Search, 
   RefreshCw, 
   Copy,
@@ -19,9 +17,8 @@ import {
   ArrowLeft,
   Shield
 } from 'lucide-react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useAccount, useDisconnect } from 'wagmi'
 import PrivyAuth from '@/components/PrivyAuth'
-import SimpleAuth from '@/components/SimpleAuth'
 
 // Mobile performance optimization utilities
 const getMobileOptimizedTransition = (duration = 0.3) => ({
@@ -36,12 +33,10 @@ const getMobileOptimizedClasses = (defaultClasses: string, mobileClasses?: strin
   }
   return defaultClasses;
 };
-import GameBoard from '@/components/GameBoard'
 import Leaderboard from '@/components/Leaderboard'
 import PointsDisplay from '@/components/PointsDisplay'
 import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
-import { FarcasterActions, FarcasterAuthButton } from '@/components/FarcasterActions'
 import { createBotPlayer, getBotMove } from '@/lib/bot-player'
 import { Player, GameState } from '@/types/game'
 
@@ -62,7 +57,6 @@ interface Game {
 export default function Home() {
   // Authentication state
   const { address, isConnected } = useAccount()
-  const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
   
   // Privy authentication state
@@ -82,7 +76,6 @@ export default function Home() {
   const [showCreateRoom, setShowCreateRoom] = useState(false)
   const [showJoinRoom, setShowJoinRoom] = useState(false)
   const [error, setError] = useState('')
-  const [botCountdown, setBotCountdown] = useState(0)
 
   // Game state for 6x6 board
   const [gameState, setGameState] = useState<GameState>({
@@ -100,6 +93,10 @@ export default function Home() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showMultiplierInfo, setShowMultiplierInfo] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showUsernameSetup, setShowUsernameSetup] = useState(false)
+  const [usernameInput, setUsernameInput] = useState('')
+  const [usernameError, setUsernameError] = useState('')
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false)
   const [hasManuallyLoggedOut, setHasManuallyLoggedOut] = useState(false)
   const [showVictoryPopup, setShowVictoryPopup] = useState(false)
   const [victoryData, setVictoryData] = useState<{
@@ -134,10 +131,31 @@ export default function Home() {
   // Auto-login if wallet is connected (but not if user manually logged out)
   useEffect(() => {
     if (isConnected && address && !player && !hasManuallyLoggedOut) {
-      // Create player from wallet only
-      createPlayer(`Player_${address.slice(0, 6)}`)
+      // Only auto-create if there's an existing saved player for this address
+      const savedPlayer = localStorage.getItem('tictactoe-player')
+      if (savedPlayer) {
+        const parsedPlayer = JSON.parse(savedPlayer)
+        if (parsedPlayer.walletAddress === address) {
+          setPlayer(parsedPlayer)
+          return
+        }
+      }
+      // Do not auto-create new players - wait for explicit user action
     }
   }, [isConnected, address, player, hasManuallyLoggedOut])
+
+  // Reset logout flag when wallet disconnects completely
+  useEffect(() => {
+    if (!isConnected && !address && hasManuallyLoggedOut) {
+      // Only reset after a delay to ensure logout is complete
+      const timer = setTimeout(() => {
+        console.log('🔄 Wallet fully disconnected - resetting logout flag')
+        setHasManuallyLoggedOut(false)
+      }, 2000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isConnected, address, hasManuallyLoggedOut])
 
   // Removed problematic auto-login to prevent FC_undefined issues
 
@@ -172,6 +190,7 @@ export default function Home() {
                 gamesPlayed: existingPlayer.games_played || 0,
                 gamesWon: existingPlayer.games_won || 0,
                 walletAddress: walletAddr,
+                privyUserId: privyData?.id,
                 privyProfile: privyData || null
               }
               setPlayer(newPlayer)
@@ -190,6 +209,7 @@ export default function Home() {
           body: JSON.stringify({
             walletAddress: walletAddr,
             name: name,
+            username: name, // Save the chosen username
             points: 0,
             gamesPlayed: 0,
             gamesWon: 0,
@@ -208,6 +228,7 @@ export default function Home() {
               gamesPlayed: createData.player.gamesPlayed || 0,
               gamesWon: createData.player.gamesWon || 0,
               walletAddress: walletAddr,
+              privyUserId: privyData?.id,
               privyProfile: privyData || null
             }
             setPlayer(newPlayer)
@@ -230,6 +251,7 @@ export default function Home() {
       // Restore existing player
       newPlayer = {
         ...existingPlayer,
+        privyUserId: privyData?.id || existingPlayer.privyUserId,
         privyProfile: privyData || existingPlayer.privyProfile
       }
     } else {
@@ -241,6 +263,7 @@ export default function Home() {
         gamesPlayed: 0,
         gamesWon: 0,
         walletAddress: walletAddr,
+        privyUserId: privyData?.id,
         privyProfile: privyData || null
       }
       // Save to all players
@@ -258,20 +281,68 @@ export default function Home() {
   // Handle Privy authentication
   const handlePrivyAuthenticated = (userData: any) => {
     console.log('🔐 Privy authentication successful:', userData)
+    
+    // Don't proceed with authentication if user manually logged out
+    if (hasManuallyLoggedOut) {
+      console.log('🚫 Ignoring Privy authentication - user manually logged out')
+      return
+    }
+    
     setIsPrivyAuthenticated(true)
     setPrivyUserData(userData)
     
-    // Create player name from Privy data
-    let playerName = 'Anonymous Player'
-    if (userData.farcaster?.username) {
-      playerName = `@${userData.farcaster.username}`
-    } else if (userData.email) {
-      playerName = userData.email.split('@')[0]
-    } else if (userData.wallet) {
-      playerName = `Player_${userData.wallet.slice(0, 6)}`
+    // Check if user has a saved username using multiple keys for reliability
+    const walletAddr = userData.wallet
+    const privyUserId = userData.id
+    
+    // Try multiple storage keys to find existing username
+    let savedUsername = null
+    
+    if (walletAddr) {
+      savedUsername = localStorage.getItem(`username-${walletAddr}`) || 
+                     localStorage.getItem(`username-wallet-${walletAddr}`)
     }
     
-    createPlayer(playerName, userData)
+    if (!savedUsername && privyUserId) {
+      savedUsername = localStorage.getItem(`username-privy-${privyUserId}`)
+    }
+    
+    // Also check if there's a player already created for this wallet/user
+    if (!savedUsername) {
+      const existingPlayer = localStorage.getItem('tictactoe-player')
+      if (existingPlayer) {
+        try {
+          const parsedPlayer = JSON.parse(existingPlayer)
+          if (parsedPlayer.walletAddress === walletAddr || parsedPlayer.privyUserId === privyUserId) {
+            savedUsername = parsedPlayer.name
+            // Save username to all relevant keys for future use
+            if (walletAddr) {
+              localStorage.setItem(`username-${walletAddr}`, savedUsername)
+              localStorage.setItem(`username-wallet-${walletAddr}`, savedUsername)
+            }
+            if (privyUserId) {
+              localStorage.setItem(`username-privy-${privyUserId}`, savedUsername)
+            }
+          }
+        } catch (error) {
+          console.warn('Error parsing existing player:', error)
+        }
+      }
+    }
+    
+    console.log('🔍 Username check:', { walletAddr, privyUserId, savedUsername })
+    
+    if (savedUsername) {
+      // Use saved username - no need to ask again
+      console.log('✅ Found existing username:', savedUsername)
+      createPlayer(savedUsername, userData)
+    } else {
+      // Show username setup for new users only
+      console.log('🆕 New user - showing username setup')
+      setShowUsernameSetup(true)
+      setUsernameInput('')
+      setUsernameError('')
+    }
   }
 
   const handlePrivyLogout = () => {
@@ -279,6 +350,186 @@ export default function Home() {
     setIsPrivyAuthenticated(false)
     setPrivyUserData(null)
     handleLogout()
+  }
+
+  // Username validation functions
+  const validateUsername = (username: string): { isValid: boolean; error?: string } => {
+    const trimmed = username.trim()
+    
+    if (!trimmed) {
+      return { isValid: false, error: 'Username cannot be empty' }
+    }
+    
+    if (trimmed.length < 4) {
+      return { isValid: false, error: 'Username must be at least 4 characters' }
+    }
+    
+    if (trimmed.length > 20) {
+      return { isValid: false, error: 'Username must be 20 characters or less' }
+    }
+    
+    // Check for invalid characters
+    const validPattern = /^[a-zA-Z0-9_@.-]+$/
+    if (!validPattern.test(trimmed)) {
+      return { isValid: false, error: 'Username can only contain letters, numbers, _, @, ., and -' }
+    }
+    
+    return { isValid: true }
+  }
+
+  const checkUsernameAvailability = async (username: string): Promise<{ isAvailable: boolean; error?: string }> => {
+    const trimmed = username.trim().toLowerCase() // Case-insensitive check
+    
+    try {
+      // Check API first
+      const response = await fetch('/api/leaderboard')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.leaderboard) {
+          const existingPlayer = data.leaderboard.find((p: any) => 
+            (p.username || p.display_name || '').toLowerCase() === trimmed
+          )
+          if (existingPlayer) {
+            return { isAvailable: false, error: 'Username is already taken' }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️  API username check failed, checking localStorage:', error)
+    }
+    
+    // Check localStorage as fallback
+    const allSavedPlayers = JSON.parse(localStorage.getItem('tictactoe-all-players') || '{}')
+    const playerList = Object.values(allSavedPlayers) as Player[]
+    
+    const existingPlayer = playerList.find(p => p.name.toLowerCase() === trimmed)
+    if (existingPlayer) {
+      return { isAvailable: false, error: 'Username is already taken' }
+    }
+    
+    // Check saved usernames
+    const allKeys = Object.keys(localStorage)
+    const usernameKeys = allKeys.filter(key => key.startsWith('username-'))
+    
+    for (const key of usernameKeys) {
+      const savedUsername = localStorage.getItem(key)
+      if (savedUsername && savedUsername.toLowerCase() === trimmed) {
+        return { isAvailable: false, error: 'Username is already taken' }
+      }
+    }
+    
+    // Check username registry
+    const usernameRegistry = JSON.parse(localStorage.getItem('username-registry') || '{}')
+    if (usernameRegistry[trimmed]) {
+      return { isAvailable: false, error: 'Username is already taken' }
+    }
+    
+    return { isAvailable: true }
+  }
+
+  const handleUsernameInput = async (value: string) => {
+    setUsernameInput(value)
+    setUsernameError('')
+    
+    if (!value.trim()) {
+      return
+    }
+    
+    // Validate format first
+    const validation = validateUsername(value)
+    if (!validation.isValid) {
+      setUsernameError(validation.error || 'Invalid username')
+      return
+    }
+    
+    // Check availability with debouncing
+    setIsCheckingUsername(true)
+    
+    // Simple debouncing
+    setTimeout(async () => {
+      const availability = await checkUsernameAvailability(value)
+      if (!availability.isAvailable) {
+        setUsernameError(availability.error || 'Username not available')
+      }
+      setIsCheckingUsername(false)
+    }, 500)
+  }
+
+  const handleUsernameSetup = async () => {
+    if (!usernameInput.trim() || !privyUserData) return
+    
+    setUsernameError('')
+    setIsCheckingUsername(true)
+    
+    // Validate username
+    const validation = validateUsername(usernameInput)
+    if (!validation.isValid) {
+      setUsernameError(validation.error || 'Invalid username')
+      setIsCheckingUsername(false)
+      return
+    }
+    
+    // Check availability
+    const availability = await checkUsernameAvailability(usernameInput)
+    if (!availability.isAvailable) {
+      setUsernameError(availability.error || 'Username not available')
+      setIsCheckingUsername(false)
+      return
+    }
+    
+    const walletAddr = privyUserData.wallet
+    const privyUserId = privyUserData.id
+    const trimmedUsername = usernameInput.trim()
+    
+    // Save username to multiple keys for reliability
+    if (walletAddr) {
+      localStorage.setItem(`username-${walletAddr}`, trimmedUsername)
+      localStorage.setItem(`username-wallet-${walletAddr}`, trimmedUsername)
+    }
+    
+    if (privyUserId) {
+      localStorage.setItem(`username-privy-${privyUserId}`, trimmedUsername)
+    }
+    
+    // Also save to a general username registry
+    const usernameRegistry = JSON.parse(localStorage.getItem('username-registry') || '{}')
+    usernameRegistry[trimmedUsername] = {
+      walletAddr,
+      privyUserId,
+      timestamp: Date.now()
+    }
+    localStorage.setItem('username-registry', JSON.stringify(usernameRegistry))
+    
+    console.log('💾 Username saved to all keys:', { walletAddr, privyUserId, username: trimmedUsername })
+    
+    // Create player
+    createPlayer(trimmedUsername, privyUserData)
+    
+    // Close modal
+    setShowUsernameSetup(false)
+    setUsernameInput('')
+    setUsernameError('')
+    setIsCheckingUsername(false)
+    setUsernameError('')
+    setIsCheckingUsername(false)
+  }
+
+  const handleSkipUsernameSetup = () => {
+    if (!privyUserData) return
+    
+    // Use default name
+    let defaultName = 'Anonymous Player'
+    if (privyUserData.farcaster?.username) {
+      defaultName = `@${privyUserData.farcaster.username}`
+    } else if (privyUserData.email) {
+      defaultName = privyUserData.email.split('@')[0]
+    } else if (privyUserData.wallet) {
+      defaultName = `Player_${privyUserData.wallet.slice(0, 6)}`
+    }
+    
+    createPlayer(defaultName, privyUserData)
+    setShowUsernameSetup(false)
+    setUsernameInput('')
   }
 
   const handleGuestLogin = (name: string) => {
@@ -384,17 +635,23 @@ export default function Home() {
     try {
       console.log('🚪 Starting logout process...')
       
-      // Disconnect wallet first to ensure proper disconnection
-      if (isConnected) {
-        disconnect()
-      }
+      // Set manual logout flag first to prevent auto-login
+      setHasManuallyLoggedOut(true)
+      
+      // Close username setup modal if open
+      setShowUsernameSetup(false)
+      setUsernameInput('')
+      setUsernameError('')
+      setIsCheckingUsername(false)
       
       // Clear Privy state
       setIsPrivyAuthenticated(false)
       setPrivyUserData(null)
       
-      // Set manual logout flag to prevent auto-login
-      setHasManuallyLoggedOut(true)
+      // Disconnect wallet
+      if (isConnected) {
+        disconnect()
+      }
       
       // Clear player state
       setPlayer(null)
@@ -420,9 +677,10 @@ export default function Home() {
     } catch (error) {
       console.error('❌ Logout error:', error)
       // Force logout even if there's an error
+      setHasManuallyLoggedOut(true)
+      setShowUsernameSetup(false)
       setPlayer(null)
       setGameMode('menu')
-      setHasManuallyLoggedOut(true)
       setIsPrivyAuthenticated(false)
       setPrivyUserData(null)
       if (isConnected) {
@@ -669,7 +927,6 @@ export default function Home() {
         const bot = createBotPlayer()
         setBotPlayer(bot)
         setIsBotGame(true)
-        setBotCountdown(0)
         
         const gameWithBot = {
           ...gameWithBoard,
@@ -1039,13 +1296,97 @@ export default function Home() {
             <h1 className="text-3xl font-bold text-foreground mb-6">Basetok</h1>
           </div>
 
-          <div className="space-y-4">
-            {/* Only Privy Authentication with "Play" button */}
-            <PrivyAuth 
-              onAuthenticated={handlePrivyAuthenticated}
-              onLogout={handlePrivyLogout}
-            />
-          </div>
+          {/* Only Privy Authentication with "Play" button */}
+          <PrivyAuth 
+            onAuthenticated={handlePrivyAuthenticated}
+            onLogout={handlePrivyLogout}
+          />
+
+          {/* Username Setup Modal */}
+          <AnimatePresence>
+            {showUsernameSetup && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+              >
+                <motion.div
+                  initial={{ y: 20 }}
+                  animate={{ y: 0 }}
+                  className="bg-card/90 backdrop-blur-md border border-border rounded-xl p-6 w-full max-w-sm"
+                >
+                  <div className="text-center mb-4">
+                    <User className="w-12 h-12 text-brand mx-auto mb-2" />
+                    <h3 className="text-lg font-bold text-foreground">Choose Your Username</h3>
+                    <p className="text-sm text-muted-foreground mb-2">This will be displayed on the leaderboard</p>
+                    <p className="text-xs text-muted-foreground">4-20 characters, letters, numbers, _, @, ., - only</p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <input
+                        type="text"
+                        value={usernameInput}
+                        onChange={(e) => handleUsernameInput(e.target.value)}
+                        placeholder="Enter your username"
+                        autoFocus
+                        className={`w-full px-3 py-3 bg-muted/50 border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors ${
+                          usernameError 
+                            ? 'border-red-500 focus:ring-red-500/50' 
+                            : 'border-border focus:ring-brand'
+                        }`}
+                        maxLength={20}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !usernameError && !isCheckingUsername) {
+                            handleUsernameSetup()
+                          }
+                        }}
+                      />
+                      {/* Username validation feedback */}
+                      <div className="mt-2 min-h-[1.25rem]">
+                        {isCheckingUsername && (
+                          <div className="flex items-center space-x-1 text-xs text-yellow-500">
+                            <div className="w-3 h-3 border border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Checking availability...</span>
+                          </div>
+                        )}
+                        {usernameError && !isCheckingUsername && (
+                          <p className="text-xs text-red-500">{usernameError}</p>
+                        )}
+                        {!usernameError && !isCheckingUsername && usernameInput.trim() && (
+                          <p className="text-xs text-green-500">Username is available!</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleSkipUsernameSetup}
+                        className="flex-1 bg-muted hover:bg-muted/80 text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
+                      >
+                        Skip
+                      </button>
+                      <button
+                        onClick={handleUsernameSetup}
+                        disabled={!usernameInput.trim() || !!usernameError || isCheckingUsername}
+                        className="flex-1 bg-brand hover:bg-brand/90 disabled:bg-muted disabled:text-muted-foreground text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-1"
+                      >
+                        {isCheckingUsername ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Checking</span>
+                          </>
+                        ) : (
+                          <span>Save</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
     )
@@ -1562,7 +1903,7 @@ export default function Home() {
             {game.gameOver ? (
               <div className="text-lg font-bold">
                 {game.winner === 'Draw' ? (
-                  <span className="text-yellow-400">It's a Draw!</span>
+                  <span className="text-yellow-400">It&apos;s a Draw!</span>
                 ) : (
                   <span className="text-green-400">
                     {game.winner} Wins! 🎉
@@ -1730,7 +2071,7 @@ function VictoryPopup({
   }
 
   const getTitle = () => {
-    if (victoryData.isDraw) return 'IT\'S A DRAW'
+    if (victoryData.isDraw) return 'IT&apos;S A DRAW'
     return isWinner ? 'VICTORY!' : 'DEFEAT'
   }
 

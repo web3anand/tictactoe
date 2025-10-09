@@ -109,20 +109,11 @@ export default function Leaderboard({ leaderboard, onClose }: LeaderboardProps) 
                       </div>
                       
                       <div className="flex items-center space-x-2">
-                        {player.xProfile?.avatar && (
-                          <img
-                            src={player.xProfile.avatar}
-                            alt={player.name}
-                            className="w-6 h-6 rounded-full border border-white/30"
-                          />
-                        )}
                         <div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-20">{player.name}</div>
-                          {player.xProfile && (
-                            <div className="text-xs text-gray-600 dark:text-gray-300 truncate max-w-20">
-                              @{player.xProfile.username}
-                            </div>
-                          )}
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-32">{player.name}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">
+                            {player.gamesPlayed} games
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -136,18 +127,6 @@ export default function Leaderboard({ leaderboard, onClose }: LeaderboardProps) 
                       </div>
                     </div>
                   </div>
-
-                  {/* X Profile Ethos Score */}
-                  {player.xProfile?.ethosScore && (
-                    <div className="mt-1 pt-1 border-t border-gray-300 dark:border-white/10">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-gray-600 dark:text-gray-300">Ethos:</span>
-                        <span className="text-gray-900 dark:text-white font-semibold">
-                          {player.xProfile.ethosScore}
-                        </span>
-                      </div>
-                    </div>
-                  )}
                 </motion.div>
               ))
             )}

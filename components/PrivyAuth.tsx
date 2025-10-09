@@ -90,9 +90,19 @@ export default function PrivyAuth({ onAuthenticated, onLogout }: PrivyAuthProps)
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              logout()
-              onLogout()
+            onClick={async () => {
+              try {
+                console.log('🚪 PrivyAuth: Starting logout...')
+                // Call our custom logout first
+                onLogout()
+                // Then logout from Privy
+                await logout()
+                console.log('✅ PrivyAuth: Logout completed')
+              } catch (error) {
+                console.error('❌ PrivyAuth: Logout error:', error)
+                // Force logout even if there's an error
+                onLogout()
+              }
             }}
             className="flex items-center space-x-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 px-2 py-1 rounded-lg transition-all duration-300 text-red-300 hover:text-red-200"
           >
@@ -106,20 +116,16 @@ export default function PrivyAuth({ onAuthenticated, onLogout }: PrivyAuthProps)
 
   // Show login options
   return (
-    <motion.div
+    <motion.button
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-400/30 rounded-xl p-6"
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={login}
+      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
     >
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={login}
-        className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
-      >
-        <Shield className="w-4 h-4" />
-        <span>Play</span>
-      </motion.button>
-    </motion.div>
+      <Shield className="w-4 h-4" />
+      <span>Play</span>
+    </motion.button>
   )
 }

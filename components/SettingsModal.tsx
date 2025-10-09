@@ -54,7 +54,7 @@ export default function SettingsModal({ onClose, player, onPlayerUpdate, onLogou
           {/* Player Info Section */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Player Profile</h3>
-            <div className="bg-gray-100 dark:bg-white/10 rounded-lg p-4">
+            <div className="bg-gray-100 dark:bg-white/10 rounded-lg p-4 space-y-3">
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
                   <User className="w-6 h-6 text-white" />
@@ -63,6 +63,32 @@ export default function SettingsModal({ onClose, player, onPlayerUpdate, onLogou
                   <p className="font-semibold text-gray-900 dark:text-white">{player?.name}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     {player?.points.toLocaleString()} points • {player?.gamesWon}/{player?.gamesPlayed} wins
+                  </p>
+                </div>
+              </div>
+              
+              {/* Wallet Address */}
+              {player?.walletAddress && (
+                <div className="pt-2 border-t border-gray-200 dark:border-white/20">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Wallet Address</p>
+                  <p className="text-sm font-mono text-gray-700 dark:text-gray-300 break-all">
+                    {player.walletAddress}
+                  </p>
+                </div>
+              )}
+              
+              {/* Player Stats */}
+              <div className="pt-2 border-t border-gray-200 dark:border-white/20 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Win Rate</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {player?.gamesPlayed ? Math.round((player.gamesWon / player.gamesPlayed) * 100) : 0}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Player ID</p>
+                  <p className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                    {player?.id.slice(0, 8)}...
                   </p>
                 </div>
               </div>
