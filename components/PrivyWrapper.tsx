@@ -31,12 +31,13 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
       appId={appId}
       config={{
         appearance: {
-          accentColor: "#5a21b0",
+          accentColor: "#40d46dff", // Base green/blue
           theme: "dark",
-          showWalletLoginFirst: true,
-          logo: "https://auth.privy.io/logos/privy-logo-dark.png",
+          showWalletLoginFirst: false, // Show social logins first
+          logo: "/logo.png",
         },
-        loginMethods: ["twitter", "farcaster", "wallet", "telegram"],
+        // Put farcaster first to enable Base app integration  
+        loginMethods: ["farcaster", "twitter", "telegram", "wallet"],
         fundingMethodConfig: {
           moonpay: {
             useSandbox: true
@@ -46,6 +47,14 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
           showWalletUIs: true,
           ethereum: {
             createOnLogin: "users-without-wallets"
+          }
+        },
+        // Enable Coinbase Wallet for Base app integration
+        externalWallets: {
+          coinbaseWallet: {
+            config: {
+              appName: "Basetok"
+            }
           }
         },
         mfa: {
