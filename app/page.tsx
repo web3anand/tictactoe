@@ -1296,11 +1296,13 @@ export default function Home() {
             <h1 className="text-3xl font-bold text-foreground mb-6">Basetok</h1>
           </div>
 
-          {/* Only Privy Authentication with "Play" button */}
-          <PrivyAuth 
-            onAuthenticated={handlePrivyAuthenticated}
-            onLogout={handlePrivyLogout}
-          />
+          <div className="space-y-3">
+            {/* Privy Authentication */}
+            <PrivyAuth 
+              onAuthenticated={handlePrivyAuthenticated}
+              onLogout={handlePrivyLogout}
+            />
+          </div>
 
           {/* Username Setup Modal */}
           <AnimatePresence>

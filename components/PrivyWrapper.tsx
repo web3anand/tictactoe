@@ -33,7 +33,7 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
         appearance: {
           accentColor: "#5a21b0",
           theme: "dark",
-          showWalletLoginFirst: false,
+          showWalletLoginFirst: true,
           logo: "https://auth.privy.io/logos/privy-logo-dark.png",
         },
         loginMethods: ["twitter", "farcaster", "wallet", "telegram"],

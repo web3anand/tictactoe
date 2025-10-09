@@ -116,16 +116,18 @@ export default function PrivyAuth({ onAuthenticated, onLogout }: PrivyAuthProps)
 
   // Show login options
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={login}
-      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
-    >
-      <Shield className="w-4 h-4" />
-      <span>Play</span>
-    </motion.button>
+    <div className="flex justify-center">
+      <motion.button
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={login}
+        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-4 px-8 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 w-48"
+      >
+        <Shield className="w-4 h-4" />
+        <span>Play</span>
+      </motion.button>
+    </div>
   )
 }
