@@ -15,46 +15,27 @@ import {
   Copy,
   User,
   ArrowLeft,
-  Shield,
-  PlusCircle,
-  LogIn
+  Shield
 } from 'lucide-react'
 import { useAccount, useDisconnect } from 'wagmi'
 import PrivyAuth from '@/components/PrivyAuth'
 
-// Utility function to get avatar for wallet address
-const getWalletAvatar = async (walletAddress: string): Promise<string> => {
-  try {
-    // Try to get ENS avatar first
-    const ensResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${walletAddress}`)
-    if (ensResponse.ok) {
-      const ensData = await ensResponse.text()
-      if (ensData && ensData.startsWith('http')) {
-        return ensData
-      }
-    }
-  } catch (error) {
-    console.log('ENS avatar not found, using generated avatar')
-  }
-  
-  // Fallback to generated avatar using DiceBear API
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${walletAddress}&backgroundColor=transparent`
+// New pixel art avatar generation system - BLACK & WHITE ONLY
+const generatePixelArtAvatar = (seed: string, size: number = 128): string => {
+  // Remove timestamp for consistent avatars, use only black and white, zoomed out a bit
+  return `https://api.dicebear.com/7.x/pixel-art/svg?seed=${seed}&backgroundColor=000000&primaryColor=ffffff&size=${size}&radius=0&scale=100&randomizeIds=false`
 }
 
-// Utility function to get profile picture
+// Utility function to get profile picture - NEW METHOD
 const getProfilePicture = (player: Player): string => {
-  // Priority: Farcaster avatar > Wallet avatar > Generated avatar
+  // Priority: Farcaster avatar > Generated pixel art avatar
   if (player.farcasterProfile?.avatar) {
     return player.farcasterProfile.avatar
   }
-  if (player.walletAvatar) {
-    return player.walletAvatar
-  }
-  if (player.walletAddress) {
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.walletAddress}&backgroundColor=transparent`
-  }
-  // Fallback to generated avatar based on name
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=transparent`
+  
+  // Use new pixel art generation
+  const seed = player.walletAddress || player.name || player.id
+  return generatePixelArtAvatar(seed, 128)
 }
 
 // Mobile performance optimization utilities
@@ -74,7 +55,7 @@ import Leaderboard from '@/components/Leaderboard'
 import PointsDisplay from '@/components/PointsDisplay'
 import MultiplierInfo from '@/components/MultiplierInfo'
 import SettingsModal from '@/components/SettingsModal'
-import { createBotPlayer, getBotMove } from '@/lib/bot-player'
+import { createBotPlayer, getBotMove, getTotalBots } from '@/lib/bot-player'
 import { Player, GameState } from '@/types/game'
 
 interface Game {
@@ -107,9 +88,11 @@ export default function Home() {
   const [botPlayer, setBotPlayer] = useState<Player | null>(null)
   const [isBotGame, setIsBotGame] = useState(false)
   const [isSearching, setIsSearching] = useState(false)
+  const [matchmakingCountdown, setMatchmakingCountdown] = useState(0)
   const [roomCode, setRoomCode] = useState('')
   const [friendCode, setFriendCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
+  const [currentBotIndex, setCurrentBotIndex] = useState(0) // Track which bot we're playing against
   const [showCreateRoom, setShowCreateRoom] = useState(false)
   const [showJoinRoom, setShowJoinRoom] = useState(false)
   const [error, setError] = useState('')
@@ -148,7 +131,6 @@ export default function Home() {
     pointsEarned: number
     isDraw: boolean
   } | null>(null)
-  const [joinGameId, setJoinGameId] = useState('');
 
   // Load player from localStorage
   useEffect(() => {
@@ -158,6 +140,8 @@ export default function Home() {
     }
     // Load leaderboard on component mount
     updateLeaderboard()
+    // Initialize bots in leaderboard
+    initializeBotsInLeaderboard()
   }, [])
 
   // Reset logout flag when wallet connects
@@ -223,7 +207,7 @@ export default function Home() {
             
             if (existingPlayer) {
               // Use existing player data
-              const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
+              const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
               newPlayer = {
                 id: existingPlayer.id,
                 name: existingPlayer.display_name || existingPlayer.username || name,
@@ -263,7 +247,7 @@ export default function Home() {
           const createData = await createResponse.json()
           if (createData.success && createData.player) {
             // Use player data from API
-            const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
+            const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
             newPlayer = {
               id: createData.player.id,
               name: createData.player.name || name,
@@ -293,7 +277,7 @@ export default function Home() {
     
     if (existingPlayer) {
       // Restore existing player
-      const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
+      const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
       newPlayer = {
         ...existingPlayer,
         walletAvatar: walletAvatar || existingPlayer.walletAvatar,
@@ -302,7 +286,7 @@ export default function Home() {
       }
     } else {
       // Create new player
-      const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
+      const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
       newPlayer = {
         id: Math.random().toString(36).substring(2, 15),
         name,
@@ -692,6 +676,93 @@ export default function Home() {
     setLeaderboard(sortedPlayers)
   }
 
+  // Update bot in leaderboard
+  const updateBotInLeaderboard = async (updatedBot: any) => {
+    console.log('🤖 Updating bot data in leaderboard:', updatedBot)
+    
+    try {
+      // Try to save bot to API leaderboard
+      const response = await fetch('/api/leaderboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: updatedBot.walletAddress || `bot_${updatedBot.name.toLowerCase()}`,
+          name: updatedBot.name,
+          points: updatedBot.points,
+          gamesPlayed: updatedBot.gamesPlayed,
+          gamesWon: updatedBot.gamesWon,
+          winStreak: 0
+        })
+      })
+      
+      if (response.ok) {
+        console.log('✅ Bot data saved to leaderboard API')
+        updateLeaderboard()
+        return
+      }
+    } catch (error) {
+      console.warn('⚠️  Bot API save failed, using localStorage fallback:', error)
+    }
+
+    // Fallback to localStorage
+    try {
+      const allSavedPlayers = JSON.parse(localStorage.getItem('tictactoe-all-players') || '{}')
+      allSavedPlayers[updatedBot.name] = {
+        id: updatedBot.id,
+        name: updatedBot.name,
+        points: updatedBot.points,
+        gamesPlayed: updatedBot.gamesPlayed,
+        gamesWon: updatedBot.gamesWon,
+        walletAddress: updatedBot.walletAddress || `bot_${updatedBot.name.toLowerCase()}`
+      }
+      localStorage.setItem('tictactoe-all-players', JSON.stringify(allSavedPlayers))
+      console.log('🤖 Bot added to leaderboard:', updatedBot.name)
+      
+      // Update leaderboard display
+      updateLeaderboard()
+    } catch (error) {
+      console.error('❌ Failed to save bot data:', error)
+    }
+  }
+
+  // Initialize bots in leaderboard with their starting stats
+  const initializeBotsInLeaderboard = async () => {
+    console.log('🤖 Initializing bots in leaderboard...')
+    
+    try {
+      const totalBots = getTotalBots()
+      const allSavedPlayers = JSON.parse(localStorage.getItem('tictactoe-all-players') || '{}')
+      
+      // Create each bot and add to leaderboard if not already present
+      for (let i = 0; i < totalBots; i++) {
+        const bot = createBotPlayer(i)
+        
+        // Check if bot already exists in leaderboard
+        if (!allSavedPlayers[bot.name]) {
+          // Add bot to localStorage leaderboard
+          allSavedPlayers[bot.name] = {
+            id: bot.id,
+            name: bot.name,
+            points: bot.points,
+            gamesPlayed: bot.gamesPlayed,
+            gamesWon: bot.gamesWon,
+            walletAddress: bot.walletAddress
+          }
+          
+          console.log(`🤖 Added ${bot.name} to leaderboard with ${bot.points} points`)
+        }
+      }
+      
+      // Save updated player list
+      localStorage.setItem('tictactoe-all-players', JSON.stringify(allSavedPlayers))
+      
+      // Update leaderboard display
+      updateLeaderboard()
+    } catch (error) {
+      console.error('❌ Failed to initialize bots in leaderboard:', error)
+    }
+  }
+
   // Logout function
   const handleLogout = () => {
     // Prevent multiple simultaneous logout attempts
@@ -979,9 +1050,11 @@ export default function Home() {
   const createOnlineGame = async () => {
     if (!player) return
 
+    // Reset bot index for new game session
+    setCurrentBotIndex(0)
     setIsSearching(true)
     setError('')
-
+    
     try {
       const response = await fetch('/api/games', {
         method: 'POST',
@@ -1002,23 +1075,65 @@ export default function Home() {
           board: data.game.board && data.game.board.length === 36 ? data.game.board : Array(36).fill('')
         }
         
-        // Immediately add bot player since we're removing the wait time
-        const bot = createBotPlayer()
+        setGame(gameWithBoard)
+        setGameMode('multiplayer')
+        
+        // Immediately add a bot instead of waiting
+        const bot = createBotPlayer(currentBotIndex)
         setBotPlayer(bot)
         setIsBotGame(true)
+        setIsSearching(false)
         
-        const gameWithBot = {
+        setGame(currentGame => ({
           ...gameWithBoard,
-          player2: bot
+          player2: bot,
+          board: gameWithBoard.board?.length === 36 ? gameWithBoard.board : Array(36).fill('')
+        }))
+        
+      } else {
+        // If API fails, create a bot game as fallback
+        const bot = createBotPlayer(currentBotIndex)
+        setBotPlayer(bot)
+        setIsBotGame(true)
+        setIsSearching(false)
+        
+        const mockGame: Game = {
+          id: Math.random().toString(36).substring(2, 15),
+          roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
+          player1: player,
+          player2: bot,
+          currentPlayer: 'X',
+          board: Array(36).fill(''),
+          gameOver: false,
+          moves: 0,
+          multiplier: 1.5,
+          streak: 0
         }
         
-        setGame(gameWithBot)
+        setGame(mockGame)
         setGameMode('multiplayer')
-      } else {
-        setError(data.error)
       }
     } catch (error) {
-      setError('Failed to create game')
+      // If there's an error, create a bot game as fallback
+      const bot = createBotPlayer(currentBotIndex)
+      setBotPlayer(bot)
+      setIsBotGame(true)
+      
+      const mockGame: Game = {
+        id: Math.random().toString(36).substring(2, 15),
+        roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
+        player1: player,
+        player2: bot,
+        currentPlayer: 'X',
+        board: Array(36).fill(''),
+        gameOver: false,
+        moves: 0,
+        multiplier: 1.5,
+        streak: 0
+      }
+      
+      setGame(mockGame)
+      setGameMode('multiplayer')
     } finally {
       setIsSearching(false)
     }
@@ -1065,18 +1180,16 @@ export default function Home() {
   const createBotGame = () => {
     if (!player) return
 
-    // Create a harder bot by default (expert or master level)
-    const difficulties: ('expert' | 'master')[] = ['expert', 'master']
-    const selectedDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)]
-    const bot = createBotPlayer(selectedDifficulty)
+    // Create a specific bot based on current index
+    const bot = createBotPlayer(currentBotIndex)
     setBotPlayer(bot)
     setIsBotGame(true)
     
     const mockGame: Game = {
       id: Math.random().toString(36).substring(2, 15),
       roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-      player1: player,
-      player2: bot,
+      player1: player, // Human player is always player1 (X)
+      player2: bot,    // Bot is always player2 (O)
       currentPlayer: 'X',
       board: Array(36).fill(''),
       gameOver: false,
@@ -1089,52 +1202,6 @@ export default function Home() {
     setGameMode('multiplayer')
   }
 
-  const handleCreateGame = async () => {
-    if (!player) return;
-    try {
-      const response = await fetch('/api/games', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player1Id: player.id,
-          boardSize: 3, // Or some other default/chosen size
-          gameType: 'friend' 
-        }),
-      });
-      const newGame = await response.json();
-      if (response.ok) {
-        setGame(newGame);
-        setGameMode('friend');
-      } else {
-        throw new Error(newGame.error || 'Failed to create game');
-      }
-    } catch (error) {
-      console.error('Error creating game:', error);
-      // You might want to show an error to the user here
-    }
-  };
-
-  const handleJoinGame = async () => {
-    if (!player || joinGameId.length !== 6) return;
-    try {
-      const response = await fetch(`/api/games/${joinGameId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player2Id: player.id }),
-      });
-      const updatedGame = await response.json();
-      if (response.ok) {
-        setGame(updatedGame);
-        setGameMode('friend');
-      } else {
-        throw new Error(updatedGame.error || 'Failed to join game');
-      }
-    } catch (error) {
-      console.error('Error joining game:', error);
-      // You might want to show an error to the user here (e.g., game not found)
-    }
-  };
-
   const makeMove = async (position: number) => {
     if (!game || !player) return
 
@@ -1144,7 +1211,7 @@ export default function Home() {
       newBoard[position] = game.currentPlayer
       
       // Check for win - 6x6 board with 4-in-a-row
-      const winningCombinations = []
+      const winningCombinations: number[][] = []
       
       // Rows (6 rows, 3 possible 4-in-a-row per row)
       for (let row = 0; row < 6; row++) {
@@ -1223,6 +1290,7 @@ export default function Home() {
       // Update player stats when game ends and show victory popup regardless of winner
       if (gameOver && winner && winner !== 'Draw' && player && botPlayer) {
         const pointsEarned = Math.floor(100 * multiplier)
+        // Human player is always X, bot is always O
         const isPlayerWinner = (winner === 'X')
         
         const updatedPlayer = {
@@ -1274,12 +1342,12 @@ export default function Home() {
           gameOver: updatedGame.gameOver,
           winner: updatedGame.winner,
           moves: updatedGame.moves
-        }, 'O', botPlayer?.difficulty || 'medium')
+        }, 'O', botPlayer?.difficulty || 'human')
 
         if (botMove !== -1) {
-          // Make bot move immediately
-          const botBoard = [...updatedGame.board]
-          botBoard[botMove] = 'O'
+            // Make bot move after delay
+            const botBoard = [...updatedGame.board]
+            botBoard[botMove] = 'O'
           
           // Check for win again
           let botWinner = null
@@ -1324,8 +1392,11 @@ export default function Home() {
           
           // Show victory popup when bot wins too
           if (botGameOver && botWinner && botWinner !== 'Draw' && player && botPlayer) {
+            // Human player is always X, bot is always O
             const isPlayerWinner = (botWinner === 'X')
+            const isBotWinner = (botWinner === 'O')
             const pointsEarned = isPlayerWinner ? Math.floor(100 * botMultiplier) : 0
+            const botPointsEarned = isBotWinner ? Math.floor(100 * botMultiplier) : 0
             
             // Update player stats for bot win
             const updatedPlayer = {
@@ -1335,6 +1406,19 @@ export default function Home() {
               gamesWon: isPlayerWinner ? player.gamesWon + 1 : player.gamesWon
             }
             updatePlayerData(updatedPlayer)
+            
+            // Update bot stats in leaderboard
+            if (botPlayer) {
+              const updatedBot = {
+                ...botPlayer,
+                points: isBotWinner ? botPlayer.points + botPointsEarned : botPlayer.points,
+                gamesPlayed: botPlayer.gamesPlayed + 1,
+                gamesWon: isBotWinner ? botPlayer.gamesWon + 1 : botPlayer.gamesWon
+              }
+              
+              // Update bot in leaderboard
+              updateBotInLeaderboard(updatedBot)
+            }
             
             // Show victory popup for both win and loss
             setVictoryData({
@@ -1349,7 +1433,7 @@ export default function Home() {
             })
             setShowVictoryPopup(true)
           }
-        }
+        } // Close the if (botMove !== -1) block
       }
     } else {
       // Handle online game
@@ -1378,12 +1462,20 @@ export default function Home() {
   }
 
   const resetMultiplayerGame = () => {
-    if (isBotGame && botPlayer) {
+    if (isBotGame && player) {
+      // Cycle to next bot for the next round
+      const nextBotIndex = (currentBotIndex + 1) % getTotalBots()
+      setCurrentBotIndex(nextBotIndex)
+      
+      // Create the next bot
+      const nextBot = createBotPlayer(nextBotIndex)
+      setBotPlayer(nextBot)
+      
       const newGame: Game = {
         id: Math.random().toString(36).substring(2, 15),
         roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-        player1: player!,
-        player2: botPlayer,
+        player1: player, // Human player is always player1 (X)
+        player2: nextBot, // New bot is always player2 (O)
         currentPlayer: 'X',
         board: Array(36).fill(''),
         gameOver: false,
@@ -1551,7 +1643,8 @@ export default function Home() {
                     height={48}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=transparent`
+                      const seed = player.walletAddress || player.name || player.id
+                      e.currentTarget.src = generatePixelArtAvatar(seed, 48)
                     }}
                   />
                 </div>
@@ -1598,14 +1691,6 @@ export default function Home() {
                 </>
               )}
             </button>
-            
-            <button
-              onClick={() => setGameMode('singleplayer')}
-              className="w-full bg-gray-800 border-2 border-gray-700 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
-            >
-              <User className="w-5 h-5" />
-              <span className="text-base">Play with Friends</span>
-            </button>
           </div>
 
           {/* Modals */}
@@ -1650,32 +1735,32 @@ export default function Home() {
             <div className="grid grid-cols-3 relative">
               <button
                 onClick={() => setShowLeaderboard(true)}
-                className="p-5 flex flex-col items-center justify-center space-y-2 hover:bg-gradient-to-t hover:from-blue-500/20 hover:to-blue-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
+                className="p-3 flex flex-col items-center justify-center space-y-1 hover:bg-gradient-to-t hover:from-blue-500/20 hover:to-blue-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
                 title="Leaderboard"
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-blue-500/0 group-hover:from-blue-500/10 to-transparent transition-all duration-500"></div>
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-blue-400 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-                <Trophy className="w-6 h-6 text-gray-300 group-hover:text-blue-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
+                <Trophy className="w-5 h-5 text-gray-300 group-hover:text-blue-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
                 <span className="text-xs font-semibold text-gray-300 group-hover:text-blue-400 transition-all duration-500 relative z-10">Board</span>
               </button>
               <button
                 onClick={() => setShowMultiplierInfo(true)}
-                className="p-5 flex flex-col items-center justify-center space-y-2 hover:bg-gradient-to-t hover:from-yellow-500/20 hover:to-yellow-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
+                className="p-3 flex flex-col items-center justify-center space-y-1 hover:bg-gradient-to-t hover:from-yellow-500/20 hover:to-yellow-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
                 title="Multipliers"
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/0 group-hover:from-yellow-500/10 to-transparent transition-all duration-500"></div>
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-                <Zap className="w-6 h-6 text-gray-300 group-hover:text-yellow-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
+                <Zap className="w-5 h-5 text-gray-300 group-hover:text-yellow-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
                 <span className="text-xs font-semibold text-gray-300 group-hover:text-yellow-400 transition-all duration-500 relative z-10">Perks</span>
               </button>
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-5 flex flex-col items-center justify-center space-y-2 hover:bg-gradient-to-t hover:from-purple-500/20 hover:to-purple-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
+                className="p-3 flex flex-col items-center justify-center space-y-1 hover:bg-gradient-to-t hover:from-purple-500/20 hover:to-purple-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
                 title="Settings"
               >
                 <div className="absolute inset-0 bg-gradient-to-t from-purple-500/0 group-hover:from-purple-500/10 to-transparent transition-all duration-500"></div>
                 <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-400 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-                <Settings className="w-6 h-6 text-gray-300 group-hover:text-purple-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
+                <Settings className="w-5 h-5 text-gray-300 group-hover:text-purple-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
                 <span className="text-xs font-semibold text-gray-300 group-hover:text-purple-400 transition-all duration-500 relative z-10">More</span>
               </button>
             </div>
@@ -1685,89 +1770,167 @@ export default function Home() {
     )
   }
 
-  // Single Player Mode - Friend Code
-  if (gameMode === 'singleplayer') {
+  // Matchmaking screen
+  if (gameMode === 'multiplayer' && isSearching && !game) {
     return (
-      <div className="min-h-screen bg-gray-90 p-4">
-        <div className="max-w-sm mx-auto">
-          {/* Header */}
-          <motion.header
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Animated Background with BASE.png */}
+        <div className="absolute inset-0 bg-black">
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center"
+            animate={{
+              opacity: [0.2, 0.6, 0.2],
+              scale: [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Users className="w-6 h-6 text-base-blue" />
-                <h1 className="text-lg font-bold text-white">Play with Friends</h1>
-              </div>
-              <button
-                onClick={() => setGameMode('menu')}
-                className="p-2 bg-gray-80 hover:bg-gray-70 rounded-lg transition-all duration-200 border border-gray-60 flex items-center space-x-2"
-              >
-                <ArrowLeft className="w-4 h-4 text-gray-30" />
-                <span className="text-sm text-gray-30">Menu</span>
-              </button>
+            <Image
+              src="/BASE.png"
+              alt="BASE"
+              width={300}
+              height={300}
+              className="opacity-20"
+            />
+          </motion.div>
+          
+          {/* Flicker overlay effect */}
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10"
+            animate={{
+              opacity: [0, 0.3, 0, 0.5, 0],
+            }}
+            transition={{
+              duration: 0.8,
+              repeat: Infinity,
+              ease: "linear"
+            }}
+          />
+        </div>
+
+        {/* Main content */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative z-10 text-center space-y-8 max-w-sm mx-auto"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-2">
+              <Crown className="w-6 h-6 text-yellow-400" />
+              <h1 className="text-lg font-bold text-white">Matchmaking</h1>
             </div>
-          </motion.header>
-
-          {/* Create or Join Game */}
-          <div className="space-y-6">
-            {/* Create Game */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-gray-80 border border-gray-60 rounded-2xl p-6"
+            <button
+              onClick={() => {
+                setGameMode('menu')
+                setIsSearching(false)
+                setMatchmakingCountdown(0)
+              }}
+              className="p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-all duration-200 flex items-center space-x-2"
             >
-              <div className="flex items-center space-x-3 mb-4">
-                <PlusCircle className="w-6 h-6 text-base-green" />
-                <h2 className="text-xl font-bold text-white">Create a New Game</h2>
-              </div>
-              <p className="text-gray-30 mb-4">
-                Start a new game and share the code with your friend.
-              </p>
-              <button
-                onClick={handleCreateGame}
-                className="w-full bg-base-blue hover:bg-base-blue/90 text-white font-bold py-3 px-4 rounded-xl transition-all"
-              >
-                Create Game
-              </button>
-            </motion.div>
-
-            {/* Join Game */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-gray-80 border border-gray-60 rounded-2xl p-6"
-            >
-              <div className="flex items-center space-x-3 mb-4">
-                <LogIn className="w-6 h-6 text-base-yellow" />
-                <h2 className="text-xl font-bold text-white">Join with Code</h2>
-              </div>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={joinGameId}
-                  onChange={(e) => setJoinGameId(e.target.value.toUpperCase())}
-                  placeholder="ENTER CODE"
-                  className="flex-grow px-4 py-3 bg-gray-70 border-2 border-gray-60 rounded-xl text-white placeholder-gray-40 focus:outline-none focus:ring-2 focus:ring-base-blue focus:border-transparent transition-all tracking-widest text-center"
-                  maxLength={6}
-                />
-                <button
-                  onClick={handleJoinGame}
-                  disabled={joinGameId.length !== 6}
-                  className="bg-base-green hover:bg-base-green/90 disabled:bg-gray-60 disabled:text-gray-40 text-white font-bold py-3 px-4 rounded-xl transition-all"
-                >
-                  Join
-                </button>
-              </div>
-            </motion.div>
+              <ArrowLeft className="w-5 h-5 text-white" />
+              <span className="text-sm font-medium text-white">Back</span>
+            </button>
           </div>
+
+          {/* Logo with animation */}
+          <motion.div
+            animate={{ 
+              scale: [1, 1.1, 1],
+              rotate: [0, 2, -2, 0]
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="mb-8"
+          >
+            <Image
+              src="/BASE.png"
+              alt="BASE"
+              width={100}
+              height={100}
+              className="mx-auto filter drop-shadow-2xl"
+            />
+          </motion.div>
+
+          {/* Matchmaking text */}
+          <div className="space-y-4">
+            <motion.h2
+              animate={{ opacity: [1, 0.7, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="text-2xl font-bold text-white"
+            >
+              Finding Player...
+            </motion.h2>
+            
+            {/* Search Message */}
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
+              className="text-2xl font-bold text-blue-400"
+            >
+              Finding Opponent
+            </motion.div>
+            
+            <p className="text-gray-400 text-base">
+              Setting up your match...
+            </p>
+          </div>
+
+          {/* Loading animation */}
+          <div className="flex justify-center space-x-2">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className="w-3 h-3 bg-blue-500 rounded-full"
+                animate={{
+                  y: [0, -10, 0],
+                  opacity: [0.5, 1, 0.5]
+                }}
+                transition={{
+                  duration: 1,
+                  repeat: Infinity,
+                  delay: i * 0.2
+                }}
+              />
+            ))}
+          </div>
+        </motion.div>
+        
+        {/* Particle effects */}
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(15)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-blue-400 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                opacity: [0, 1, 0],
+                scale: [0, 1, 0],
+              }}
+              transition={{
+                duration: 2 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Search Icon */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Search className="w-8 h-8 text-blue-500" />
         </div>
       </div>
-    );
+    )
   }
 
   // Multiplayer game
@@ -1780,7 +1943,7 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <Crown className="w-6 h-6 text-yellow-400" />
               <h1 className="text-lg font-bold text-foreground">
-                {isBotGame ? 'Bot Game' : 'Multiplayer Game'}
+                Multiplayer Game
               </h1>
             </div>
             <button
@@ -1790,31 +1953,6 @@ export default function Home() {
               <ArrowLeft className="w-5 h-5 text-foreground" />
               <span className="text-sm font-medium text-foreground">Back</span>
             </button>
-          </div>
-
-          {/* Room Code Container */}
-          <div className="mb-4 flex justify-center">
-            <div className="w-[380px] h-auto bg-white/5 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-between p-4 shadow-lg">
-              <div className="flex items-center space-x-4">
-                <Users className="w-6 h-6 text-brand" />
-                <div>
-                  <p className="text-sm text-muted-foreground font-medium">Room Code</p>
-                  <p className="text-xl font-bold text-foreground">{game.roomCode}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground font-medium">Players</p>
-                  <p className="text-sm font-bold text-foreground">{game.player2 ? '2/2' : '1/2'}</p>
-                </div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(game.roomCode)}
-                  className="p-3 bg-card hover:bg-accent rounded-lg transition-colors border border-border"
-                >
-                  <Copy className="w-5 h-5 text-foreground" />
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Player Stats Containers */}
@@ -1840,7 +1978,9 @@ export default function Home() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-pink-500 font-medium">Player 2</p>
-                      <p className="text-sm font-bold text-foreground truncate">{game.player2.name}</p>
+                      <p className="text-sm font-bold text-foreground truncate">
+                        {game.player2.name}
+                      </p>
                     </div>
                   </>
                 ) : (
@@ -2107,7 +2247,7 @@ function VictoryPopup({
   }
 
   const getTitle = () => {
-    if (victoryData.isDraw) return 'IT&apos;S A DRAW'
+    if (victoryData.isDraw) return "IT'S A DRAW"
     return isWinner ? 'VICTORY!' : 'DEFEAT'
   }
 
@@ -2193,7 +2333,8 @@ function VictoryPopup({
 }
 
 function PlayerAvatar({ player, isWinner }: { player: Player, isWinner: boolean }) {
-  const avatarUrl = player.farcasterProfile?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${player.id}`
+  const seed = player.walletAddress || player.name || player.id
+  const avatarUrl = player.farcasterProfile?.avatar || generatePixelArtAvatar(seed, 96)
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   
   return (
@@ -2202,7 +2343,7 @@ function PlayerAvatar({ player, isWinner }: { player: Player, isWinner: boolean 
         <img 
           src={avatarUrl} 
           alt={player.name} 
-          className={`w-24 h-24 rounded-full object-cover border-4 ${isWinner ? 'border-yellow-400' : 'border-gray-500'}`}
+          className={`w-24 h-24 rounded-lg object-cover border-4 ${isWinner ? 'border-yellow-400' : 'border-gray-500'}`}
         />
         {isWinner && (
           <div className="absolute -top-2 -right-2 text-3xl animate-pulse">

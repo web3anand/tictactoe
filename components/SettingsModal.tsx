@@ -2,6 +2,22 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Settings, User, LogOut } from 'lucide-react'
+import Image from 'next/image'
+
+// New pixel art avatar generation system - BLACK & WHITE ONLY
+const generatePixelArtAvatar = (seed: string, size: number = 64): string => {
+  // Remove timestamp for consistent avatars, use only black and white, zoomed out a bit
+  return `https://api.dicebear.com/7.x/pixel-art/svg?seed=${seed}&backgroundColor=000000&primaryColor=ffffff&size=${size}&radius=0&scale=100&randomizeIds=false`
+}
+
+const getProfilePicture = (player: Player): string => {
+  if (player.farcasterProfile?.avatar) {
+    return player.farcasterProfile.avatar;
+  }
+  // Use new pixel art generation system - black & white with minimal blue
+  const seed = player.walletAddress || player.name || player.id
+  return generatePixelArtAvatar(seed, 48);
+}
 
 interface Player {
   id: string
@@ -9,8 +25,15 @@ interface Player {
   points: number
   gamesPlayed: number
   gamesWon: number
-  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
+  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master' | 'human'
   walletAddress?: string
+  farcasterProfile?: {
+    fid: number;
+    username: string;
+    displayName: string;
+    avatar: string;
+    bio: string;
+  };
 }
 
 interface SettingsModalProps {
@@ -56,8 +79,16 @@ export default function SettingsModal({ onClose, player, onPlayerUpdate, onLogou
             <h3 className="text-lg font-semibold text-white mb-3">Player Profile</h3>
             <div className="bg-gray-800 rounded-lg p-4 space-y-3 border border-gray-700">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-600">
+                  {player && (
+                    <Image
+                      src={getProfilePicture(player)}
+                      alt={`${player.name}'s avatar`}
+                      width={48}
+                      height={48}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
                 <div>
                   <p className="font-semibold text-white">{player?.name}</p>

@@ -94,7 +94,7 @@ const generateRoomCode = (isBot: boolean = false): string => {
     points: number
     gamesPlayed: number
     gamesWon: number
-    difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
+    difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master' | 'human'
     walletAddress?: string
     xProfile?: any
   }
@@ -158,7 +158,7 @@ export default function MultiplayerPage() {
     try {
       if (withBot) {
         // Create bot game locally
-        const bot = createBotPlayer()
+        const bot = createBotPlayer(0) // Use first bot for multiplayer fallback
         setBotPlayer(bot)
         setIsBotGame(true)
         
@@ -219,7 +219,7 @@ export default function MultiplayerPage() {
           const botTimeout = setTimeout(() => {
             setGame(currentGame => {
               if (currentGame && !currentGame.player2) {
-                const bot = createBotPlayer()
+                const bot = createBotPlayer(0) // Use first bot for auto-fallback
                 setBotPlayer(bot)
                 setIsBotGame(true)
                 setBotCountdown(0)

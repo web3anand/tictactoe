@@ -69,8 +69,10 @@ export default function Leaderboard({ leaderboard, onClose }: LeaderboardProps) 
                   alt={player.name}
                   width={index === 0 ? 72 : 64}
                   height={index === 0 ? 72 : 64}
-                  className="rounded-full border-2"
-                  style={{ borderColor: getRankColor(index + 1) }}
+                  className="rounded-lg border-2 shadow-lg"
+                  style={{ 
+                    borderColor: getRankColor(index + 1)
+                  }}
                 />
                 <div 
                   className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
@@ -99,7 +101,7 @@ export default function Leaderboard({ leaderboard, onClose }: LeaderboardProps) 
                   alt={player.name}
                   width={36}
                   height={36}
-                  className="rounded-full"
+                  className="rounded-lg"
                 />
                 <div>
                   <p className="font-semibold text-white text-sm">{player.name}</p>
@@ -126,9 +128,17 @@ const getRankColor = (rank: number) => {
   }
 };
 
+// New pixel art avatar generation system - BLACK & WHITE ONLY
+const generatePixelArtAvatar = (seed: string, size: number = 64): string => {
+  // Remove timestamp for consistent avatars, use only black and white, zoomed out a bit
+  return `https://api.dicebear.com/7.x/pixel-art/svg?seed=${seed}&backgroundColor=000000&primaryColor=ffffff&size=${size}&radius=0&scale=100&randomizeIds=false`
+}
+
 function getProfilePicture(player: Player) {
   if (player.farcasterProfile?.avatar) {
     return player.farcasterProfile.avatar;
   }
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=transparent`;
+  // Use new pixel art generation system - black & white with minimal blue
+  const seed = player.walletAddress || player.name || player.id
+  return generatePixelArtAvatar(seed, 64);
 }

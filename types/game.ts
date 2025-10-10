@@ -6,7 +6,7 @@ export interface Player {
   points: number
   gamesPlayed: number
   gamesWon: number
-  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
+  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master' | 'human'
   walletAddress?: string
   walletAvatar?: string  // ENS avatar or generated avatar from wallet address
   privyUserId?: string

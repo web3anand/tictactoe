@@ -1,8 +1,8 @@
-// Advanced Bot player logic for TicTacToe
+// Human-like Bot player logic for TicTacToe
 interface BotPlayer {
   id: string
   name: string
-  difficulty: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert' | 'master' | 'human'
   points: number
   gamesPlayed: number
   gamesWon: number
@@ -18,52 +18,46 @@ interface GameBoard {
   moves: number
 }
 
-// Advanced bot names with difficulty indicators
-const BOT_NAMES = {
-  easy: ['Friendly Bot', 'Beginner AI', 'Learning Bot', 'Novice Player'],
-  medium: ['Smart Bot', 'Strategic AI', 'Tactical Player', 'Logic Bot'],
-  hard: ['Advanced AI', 'Expert Bot', 'Master Player', 'Challenger Bot'],
-  expert: ['Elite AI', 'Pro Bot', 'Champion Player', 'Veteran Bot'],
-  master: ['Grandmaster AI', 'Legendary Bot', 'Ultimate Player', 'Supreme Bot']
-}
+// Human-like bot names and personalities
+const PREDEFINED_BOTS = [
+  { name: 'Alex', personality: 'strategic', points: 850, winRate: 0.65 },
+  { name: 'Jordan', personality: 'aggressive', points: 720, winRate: 0.58 },
+  { name: 'Casey', personality: 'cautious', points: 640, winRate: 0.52 },
+  { name: 'Taylor', personality: 'unpredictable', points: 890, winRate: 0.70 },
+  { name: 'Morgan', personality: 'lazy', points: 560, winRate: 0.45 },
+  { name: 'Riley', personality: 'brilliant', points: 950, winRate: 0.75 },
+  { name: 'Finley', personality: 'balanced', points: 780, winRate: 0.60 },
+  { name: 'Quinn', personality: 'rookie', points: 420, winRate: 0.38 },
+  { name: 'Blake', personality: 'competitive', points: 820, winRate: 0.63 },
+  { name: 'Cameron', personality: 'creative', points: 690, winRate: 0.55 }
+]
 
 // 6x6 board positions for better strategy
 const BOARD_SIZE = 6
 const WIN_LENGTH = 4 // 4 in a row to win
 
-export const createBotPlayer = (difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'): BotPlayer => {
-  const selectedDifficulty = difficulty || (['easy', 'medium', 'hard', 'expert', 'master'][Math.floor(Math.random() * 5)] as 'easy' | 'medium' | 'hard' | 'expert' | 'master')
-  const randomName = BOT_NAMES[selectedDifficulty][Math.floor(Math.random() * BOT_NAMES[selectedDifficulty].length)]
-  
-  // Higher difficulty bots have better stats
-  const basePoints = selectedDifficulty === 'easy' ? 100 : 
-                    selectedDifficulty === 'medium' ? 500 : 
-                    selectedDifficulty === 'hard' ? 1000 : 
-                    selectedDifficulty === 'expert' ? 2000 : 5000
-  
-  const baseGames = selectedDifficulty === 'easy' ? 10 : 
-                   selectedDifficulty === 'medium' ? 50 : 
-                   selectedDifficulty === 'hard' ? 100 : 
-                   selectedDifficulty === 'expert' ? 200 : 500
-  
-  const winRate = selectedDifficulty === 'easy' ? 0.3 : 
-                 selectedDifficulty === 'medium' ? 0.6 : 
-                 selectedDifficulty === 'hard' ? 0.8 : 
-                 selectedDifficulty === 'expert' ? 0.9 : 0.95
+export const createBotPlayer = (botIndex: number = 0): BotPlayer => {
+  const botData = PREDEFINED_BOTS[botIndex % PREDEFINED_BOTS.length]
+  const baseGames = 25 + Math.floor(Math.random() * 20) // 25-45 games
   
   return {
-    id: `bot_${Math.random().toString(36).substring(2, 15)}`,
-    name: `${randomName} (${selectedDifficulty})`,
-    difficulty: selectedDifficulty,
-    points: basePoints + Math.floor(Math.random() * basePoints),
-    gamesPlayed: baseGames + Math.floor(Math.random() * baseGames),
-    gamesWon: Math.floor((baseGames + Math.floor(Math.random() * baseGames)) * winRate),
-    walletAddress: `bot_${Math.random().toString(36).substring(2, 15)}`
+    id: `bot_${botData.name.toLowerCase()}_${Date.now()}`,
+    name: botData.name,
+    difficulty: 'human',
+    points: botData.points + Math.floor(Math.random() * 100 - 50), // ±50 points variation
+    gamesPlayed: baseGames,
+    gamesWon: Math.floor(baseGames * botData.winRate),
+    walletAddress: `bot_${botData.name.toLowerCase()}_wallet`
   }
 }
 
-// Advanced bot move logic with sophisticated strategies
-export const getBotMove = (gameBoard: GameBoard, botSymbol: string, difficulty: string = 'medium'): number => {
+// Get total number of available bots
+export const getTotalBots = (): number => {
+  return PREDEFINED_BOTS.length
+}
+
+// Human-like bot move logic with varying intelligence and occasional mistakes
+export const getBotMove = (gameBoard: GameBoard, botSymbol: string, difficulty: string = 'human'): number => {
   const { board, currentPlayer } = gameBoard
   
   // Only make a move if it's the bot's turn
@@ -80,43 +74,35 @@ export const getBotMove = (gameBoard: GameBoard, botSymbol: string, difficulty: 
 
   const opponentSymbol = botSymbol === 'X' ? 'O' : 'X'
 
-  // Easy bot: Random move with slight preference for center
-  if (difficulty === 'easy') {
-    const center = 17 // Center of 6x6 board
-    if (emptyCells.includes(center)) {
-      return Math.random() < 0.7 ? center : emptyCells[Math.floor(Math.random() * emptyCells.length)]
+  // Human-like decision making with varying intelligence levels
+  const intelligenceLevel = Math.random() // 0-1, determines how smart the bot is this turn
+  const lazinessLevel = Math.random() // 0-1, determines if bot makes lazy moves
+  
+  // Sometimes be lazy and make random moves (human-like)
+  if (lazinessLevel < 0.15) { // 15% chance of lazy move
+    return emptyCells[Math.floor(Math.random() * emptyCells.length)]
+  }
+
+  // Always try to win if possible (even lazy humans do this)
+  const winMove = findWinningMove(board, botSymbol, emptyCells)
+  if (winMove !== -1) {
+    // Sometimes miss obvious wins (human-like mistake)
+    if (intelligenceLevel > 0.1) { // 90% chance to see winning move
+      return winMove
     }
-    return emptyCells[Math.floor(Math.random() * emptyCells.length)]
   }
 
-  // Medium bot: Basic strategy
-  if (difficulty === 'medium') {
-    // Try to win
-    const winMove = findWinningMove(board, botSymbol, emptyCells)
-    if (winMove !== -1) return winMove
-
-    // Try to block opponent
-    const blockMove = findWinningMove(board, opponentSymbol, emptyCells)
-    if (blockMove !== -1) return blockMove
-
-    // Center preference
-    const center = 17
-    if (emptyCells.includes(center)) return center
-
-    // Random move
-    return emptyCells[Math.floor(Math.random() * emptyCells.length)]
+  // Try to block opponent from winning
+  const blockMove = findWinningMove(board, opponentSymbol, emptyCells)
+  if (blockMove !== -1) {
+    // Sometimes miss blocks (human-like mistake)
+    if (intelligenceLevel > 0.2) { // 80% chance to see block
+      return blockMove
+    }
   }
 
-  // Hard bot: Advanced strategy
-  if (difficulty === 'hard') {
-    // Try to win
-    const winMove = findWinningMove(board, botSymbol, emptyCells)
-    if (winMove !== -1) return winMove
-
-    // Try to block opponent
-    const blockMove = findWinningMove(board, opponentSymbol, emptyCells)
-    if (blockMove !== -1) return blockMove
-
+  // Smart moves when intelligence is high
+  if (intelligenceLevel > 0.7) { // 30% chance of brilliant play
     // Create fork opportunities
     const forkMove = findForkMove(board, botSymbol, emptyCells)
     if (forkMove !== -1) return forkMove
@@ -124,45 +110,93 @@ export const getBotMove = (gameBoard: GameBoard, botSymbol: string, difficulty: 
     // Block opponent forks
     const blockForkMove = findForkMove(board, opponentSymbol, emptyCells)
     if (blockForkMove !== -1) return blockForkMove
-
-    // Strategic positioning
-    return getStrategicMove(board, botSymbol, emptyCells)
   }
 
-  // Expert bot: Very advanced strategy
-  if (difficulty === 'expert') {
-    // Try to win
-    const winMove = findWinningMove(board, botSymbol, emptyCells)
-    if (winMove !== -1) return winMove
+  // Medium intelligence moves
+  if (intelligenceLevel > 0.4) { // 60% chance of decent play
+    // Try center if available
+    const center = 17 // Center of 6x6 board
+    if (emptyCells.includes(center)) {
+      return center
+    }
 
-    // Try to block opponent
-    const blockMove = findWinningMove(board, opponentSymbol, emptyCells)
-    if (blockMove !== -1) return blockMove
-
-    // Create multiple threats
-    const threatMove = createMultipleThreats(board, botSymbol, emptyCells)
-    if (threatMove !== -1) return threatMove
-
-    // Block opponent threats
-    const blockThreatMove = createMultipleThreats(board, opponentSymbol, emptyCells)
-    if (blockThreatMove !== -1) return blockThreatMove
-
-    // Advanced strategic positioning
-    return getAdvancedStrategicMove(board, botSymbol, emptyCells)
+    // Try corners
+    const corners = [0, 5, 30, 35]
+    const availableCorners = corners.filter(corner => emptyCells.includes(corner))
+    if (availableCorners.length > 0 && Math.random() > 0.3) {
+      return availableCorners[Math.floor(Math.random() * availableCorners.length)]
+    }
   }
 
-  // Master bot: Perfect play
-  if (difficulty === 'master') {
-    // Use minimax algorithm for perfect play
-    const minimaxMove = minimax(board, botSymbol, 0, true, -Infinity, Infinity)
-    if (minimaxMove.move !== -1) return minimaxMove.move
+  // Default: somewhat strategic move with some randomness
+  return getHumanLikeMove(board, botSymbol, emptyCells, intelligenceLevel)
+}
 
-    // Fallback to expert strategy
-    return getAdvancedStrategicMove(board, botSymbol, emptyCells)
+// Human-like move selection
+const getHumanLikeMove = (board: string[], symbol: string, emptyCells: number[], intelligence: number): number => {
+  // Create a weighted selection based on position value
+  const moveWeights: { [key: number]: number } = {}
+  
+  for (const cell of emptyCells) {
+    let weight = 1 // Base weight
+    
+    // Center preference (humans like center)
+    if (cell === 17) weight += 3
+    
+    // Corner preference (humans know corners are good)
+    const corners = [0, 5, 30, 35]
+    if (corners.includes(cell)) weight += 2
+    
+    // Adjacent to existing pieces (humans like to build)
+    if (hasAdjacentPiece(board, cell, symbol)) weight += 2
+    
+    // Block opponent building (humans try to interfere)
+    const opponentSymbol = symbol === 'X' ? 'O' : 'X'
+    if (hasAdjacentPiece(board, cell, opponentSymbol)) weight += 1
+    
+    // Apply intelligence factor
+    weight *= (0.5 + intelligence * 0.5) // Scale weight based on intelligence
+    
+    moveWeights[cell] = weight
   }
-
-  // Default: Random move
+  
+  // Weighted random selection (more human-like than pure random)
+  const totalWeight = Object.values(moveWeights).reduce((sum, weight) => sum + weight, 0)
+  let random = Math.random() * totalWeight
+  
+  for (const [cell, weight] of Object.entries(moveWeights)) {
+    random -= weight
+    if (random <= 0) {
+      return parseInt(cell)
+    }
+  }
+  
+  // Fallback to random move
   return emptyCells[Math.floor(Math.random() * emptyCells.length)]
+}
+
+// Check if a position has adjacent pieces
+const hasAdjacentPiece = (board: string[], position: number, symbol: string): boolean => {
+  const row = Math.floor(position / BOARD_SIZE)
+  const col = position % BOARD_SIZE
+  
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue
+      
+      const newRow = row + dr
+      const newCol = col + dc
+      
+      if (newRow >= 0 && newRow < BOARD_SIZE && newCol >= 0 && newCol < BOARD_SIZE) {
+        const adjacentPos = newRow * BOARD_SIZE + newCol
+        if (board[adjacentPos] === symbol) {
+          return true
+        }
+      }
+    }
+  }
+  
+  return false
 }
 
 // Advanced win condition checker for 6x6 board with 4 in a row
@@ -249,257 +283,4 @@ const findForkMove = (board: string[], symbol: string, emptyCells: number[]): nu
     }
   }
   return -1
-}
-
-// Create multiple threats
-const createMultipleThreats = (board: string[], symbol: string, emptyCells: number[]): number => {
-  let bestMove = -1
-  let maxThreats = 0
-
-  for (const cell of emptyCells) {
-    const testBoard = [...board]
-    testBoard[cell] = symbol
-    
-    let threats = 0
-    // Count potential winning sequences this move contributes to
-    threats += countThreats(testBoard, symbol, cell)
-    
-    if (threats > maxThreats) {
-      maxThreats = threats
-      bestMove = cell
-    }
-  }
-
-  return bestMove
-}
-
-// Count threats for a position
-const countThreats = (board: string[], symbol: string, position: number): number => {
-  const row = Math.floor(position / BOARD_SIZE)
-  const col = position % BOARD_SIZE
-  let threats = 0
-
-  // Check horizontal threats
-  for (let start = Math.max(0, col - WIN_LENGTH + 1); start <= Math.min(BOARD_SIZE - WIN_LENGTH, col); start++) {
-    let count = 0
-    let emptyCount = 0
-    for (let i = 0; i < WIN_LENGTH; i++) {
-      const cellValue = board[row * BOARD_SIZE + start + i]
-      if (cellValue === symbol) count++
-      else if (cellValue === '' || cellValue === null) emptyCount++
-    }
-    if (count >= 2 && count + emptyCount === WIN_LENGTH) threats++
-  }
-
-  // Check vertical threats
-  for (let start = Math.max(0, row - WIN_LENGTH + 1); start <= Math.min(BOARD_SIZE - WIN_LENGTH, row); start++) {
-    let count = 0
-    let emptyCount = 0
-    for (let i = 0; i < WIN_LENGTH; i++) {
-      const cellValue = board[(start + i) * BOARD_SIZE + col]
-      if (cellValue === symbol) count++
-      else if (cellValue === '' || cellValue === null) emptyCount++
-    }
-    if (count >= 2 && count + emptyCount === WIN_LENGTH) threats++
-  }
-
-  // Check diagonal threats (top-left to bottom-right)
-  const diagStartRow = Math.max(0, row - Math.min(row, col))
-  const diagStartCol = Math.max(0, col - Math.min(row, col))
-  for (let start = 0; start <= Math.min(BOARD_SIZE - WIN_LENGTH - diagStartRow, BOARD_SIZE - WIN_LENGTH - diagStartCol); start++) {
-    let count = 0
-    let emptyCount = 0
-    for (let i = 0; i < WIN_LENGTH; i++) {
-      const cellValue = board[(diagStartRow + start + i) * BOARD_SIZE + diagStartCol + start + i]
-      if (cellValue === symbol) count++
-      else if (cellValue === '' || cellValue === null) emptyCount++
-    }
-    if (count >= 2 && count + emptyCount === WIN_LENGTH) threats++
-  }
-
-  return threats
-}
-
-// Strategic move selection
-const getStrategicMove = (board: string[], symbol: string, emptyCells: number[]): number => {
-  // Priority order: center, corners, edges
-  const center = 17
-  const corners = [0, 5, 30, 35]
-  const edges = [1, 2, 3, 4, 6, 11, 12, 17, 18, 23, 24, 29, 30, 31, 32, 33]
-
-  if (emptyCells.includes(center)) return center
-
-  const availableCorners = corners.filter(corner => emptyCells.includes(corner))
-  if (availableCorners.length > 0) {
-    return availableCorners[Math.floor(Math.random() * availableCorners.length)]
-  }
-
-  const availableEdges = edges.filter(edge => emptyCells.includes(edge))
-  if (availableEdges.length > 0) {
-    return availableEdges[Math.floor(Math.random() * availableEdges.length)]
-  }
-
-  return emptyCells[Math.floor(Math.random() * emptyCells.length)]
-}
-
-// Advanced strategic move selection
-const getAdvancedStrategicMove = (board: string[], symbol: string, emptyCells: number[]): number => {
-  // Evaluate each move based on multiple factors
-  let bestMove = -1
-  let bestScore = -Infinity
-
-  for (const cell of emptyCells) {
-    let score = 0
-    
-    // Center control
-    if (cell === 17) score += 10
-    
-    // Corner control
-    const corners = [0, 5, 30, 35]
-    if (corners.includes(cell)) score += 5
-    
-    // Threat creation
-    score += countThreats(board, symbol, cell) * 3
-    
-    // Block opponent threats
-    const opponentSymbol = symbol === 'X' ? 'O' : 'X'
-    score += countThreats(board, opponentSymbol, cell) * 2
-    
-    // Position value based on distance from center
-    const row = Math.floor(cell / BOARD_SIZE)
-    const col = cell % BOARD_SIZE
-    const centerRow = Math.floor(BOARD_SIZE / 2)
-    const centerCol = Math.floor(BOARD_SIZE / 2)
-    const distanceFromCenter = Math.abs(row - centerRow) + Math.abs(col - centerCol)
-    score += (BOARD_SIZE - distanceFromCenter) * 0.5
-
-    if (score > bestScore) {
-      bestScore = score
-      bestMove = cell
-    }
-  }
-
-  return bestMove
-}
-
-// Minimax algorithm for perfect play
-const minimax = (board: string[], symbol: string, depth: number, isMaximizing: boolean, alpha: number, beta: number): { move: number, score: number } => {
-  const emptyCells = board.map((cell, index) => (cell === '' || cell === null) ? index : null).filter(index => index !== null) as number[]
-  const opponentSymbol = symbol === 'X' ? 'O' : 'X'
-
-  // Terminal conditions
-  if (checkWin(board, symbol)) return { move: -1, score: 100 - depth }
-  if (checkWin(board, opponentSymbol)) return { move: -1, score: -100 + depth }
-  if (emptyCells.length === 0) return { move: -1, score: 0 }
-
-  // Limit depth for performance
-  if (depth >= 4) {
-    return { move: -1, score: evaluateBoard(board, symbol) }
-  }
-
-  if (isMaximizing) {
-    let maxScore = -Infinity
-    let bestMove = -1
-
-    for (const cell of emptyCells) {
-      const testBoard = [...board]
-      testBoard[cell] = symbol
-      const result = minimax(testBoard, symbol, depth + 1, false, alpha, beta)
-      
-      if (result.score > maxScore) {
-        maxScore = result.score
-        bestMove = cell
-      }
-      
-      alpha = Math.max(alpha, result.score)
-      if (beta <= alpha) break // Alpha-beta pruning
-    }
-
-    return { move: bestMove, score: maxScore }
-  } else {
-    let minScore = Infinity
-    let bestMove = -1
-
-    for (const cell of emptyCells) {
-      const testBoard = [...board]
-      testBoard[cell] = opponentSymbol
-      const result = minimax(testBoard, symbol, depth + 1, true, alpha, beta)
-      
-      if (result.score < minScore) {
-        minScore = result.score
-        bestMove = cell
-      }
-      
-      beta = Math.min(beta, result.score)
-      if (beta <= alpha) break // Alpha-beta pruning
-    }
-
-    return { move: bestMove, score: minScore }
-  }
-}
-
-// Evaluate board position
-const evaluateBoard = (board: string[], symbol: string): number => {
-  const opponentSymbol = symbol === 'X' ? 'O' : 'X'
-  let score = 0
-
-  // Evaluate all possible 4-in-a-row sequences
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    for (let col = 0; col <= BOARD_SIZE - WIN_LENGTH; col++) {
-      score += evaluateSequence(board, row, col, 0, 1, symbol, opponentSymbol)
-    }
-  }
-
-  for (let col = 0; col < BOARD_SIZE; col++) {
-    for (let row = 0; row <= BOARD_SIZE - WIN_LENGTH; row++) {
-      score += evaluateSequence(board, row, col, 1, 0, symbol, opponentSymbol)
-    }
-  }
-
-  for (let row = 0; row <= BOARD_SIZE - WIN_LENGTH; row++) {
-    for (let col = 0; col <= BOARD_SIZE - WIN_LENGTH; col++) {
-      score += evaluateSequence(board, row, col, 1, 1, symbol, opponentSymbol)
-    }
-  }
-
-  for (let row = 0; row <= BOARD_SIZE - WIN_LENGTH; row++) {
-    for (let col = WIN_LENGTH - 1; col < BOARD_SIZE; col++) {
-      score += evaluateSequence(board, row, col, 1, -1, symbol, opponentSymbol)
-    }
-  }
-
-  return score
-}
-
-// Evaluate a sequence of 4 positions
-const evaluateSequence = (board: string[], startRow: number, startCol: number, deltaRow: number, deltaCol: number, symbol: string, opponentSymbol: string): number => {
-  let symbolCount = 0
-  let opponentCount = 0
-  let emptyCount = 0
-
-  for (let i = 0; i < WIN_LENGTH; i++) {
-    const cellValue = board[(startRow + i * deltaRow) * BOARD_SIZE + startCol + i * deltaCol]
-    if (cellValue === symbol) symbolCount++
-    else if (cellValue === opponentSymbol) opponentCount++
-    else if (cellValue === '' || cellValue === null) emptyCount++
-  }
-
-  if (symbolCount > 0 && opponentCount > 0) return 0 // Blocked sequence
-  if (symbolCount === 0 && opponentCount === 0) return 0 // Empty sequence
-
-  if (symbolCount > 0) {
-    return Math.pow(10, symbolCount) // Favor our own sequences
-  } else {
-    return -Math.pow(10, opponentCount) // Penalize opponent sequences
-  }
-}
-
-// Auto-join bot to game if no human player joins within timeout
-export const autoJoinBot = (gameId: string, timeout: number = 10000): Promise<BotPlayer> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const bot = createBotPlayer()
-      resolve(bot)
-    }, timeout)
-  })
 }
