@@ -34,7 +34,7 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
           accentColor: "#40d46dff", // Base green/blue
           theme: "dark",
           showWalletLoginFirst: false, // Show social logins first
-          logo: "/logo.png",
+          logo: "/B T.svg",
         },
         // Put farcaster first to enable Base app integration  
         loginMethods: ["farcaster", "twitter", "telegram", "wallet"],

@@ -71,11 +71,13 @@ export default function PrivyAuth({ onAuthenticated, onLogout }: PrivyAuthProps)
   }
 
   return (
-    <button
-      onClick={login}
-      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-    >
-      Connect & Play
-    </button>
+    <div className="flex justify-center">
+      <button
+        onClick={login}
+        className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-colors"
+      >
+        Connect & Play
+      </button>
+    </div>
   )
 }

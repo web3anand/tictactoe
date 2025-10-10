@@ -1411,10 +1411,16 @@ export default function Home() {
   if (!player) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="max-w-md w-full space-y-6 bg-gray-900 rounded-lg p-8 shadow-lg border border-gray-800">
+        <div className="max-w-md w-full space-y-6">
           <div className="text-center">
-            <div className="w-16 h-16 bg-blue-600 rounded-lg mx-auto mb-6 flex items-center justify-center">
-              <Crown className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+              <Image
+                src="/B T.svg"
+                alt="Basetok Logo"
+                width={64}
+                height={64}
+                className="w-full h-full object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Basetok</h1>
             <p className="text-gray-400">Your onchain gaming experience</p>
@@ -1432,10 +1438,16 @@ export default function Home() {
           <AnimatePresence>
             {showUsernameSetup && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-gray-900 rounded-lg p-8 w-full max-w-md shadow-xl border border-gray-800">
+                <div className="max-w-md w-full space-y-6">
                   <div className="text-center mb-6">
-                    <div className="w-12 h-12 bg-blue-600 rounded-lg mx-auto mb-4 flex items-center justify-center">
-                      <User className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center">
+                      <Image
+                        src="/B T.svg"
+                        alt="Basetok Logo"
+                        width={48}
+                        height={48}
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">Choose Username</h3>
                     <p className="text-gray-400 mb-2">Required for leaderboard</p>
@@ -1507,16 +1519,29 @@ export default function Home() {
   // Main menu
   if (gameMode === 'menu') {
     return (
-      <div className="min-h-screen bg-gray-900 p-4">
-        <div className="max-w-md mx-auto">
+      <div className="min-h-screen bg-gray-900 p-4 relative">
+        <div className="max-w-md mx-auto pt-16">
           {/* Header */}
-          <header className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-white">Basetok</h1>
+          <header className="absolute top-0 left-0 right-0 z-10 p-4">
+            <div className="max-w-md mx-auto">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <Image
+                    src="/B T.svg"
+                    alt="Basetok Logo"
+                    width={44}
+                    height={44}
+                    className="w-11 h-11 drop-shadow-lg"
+                  />
+                </div>
+                <h1 className="text-3xl font-bold text-white tracking-tight drop-shadow-lg">Basetok</h1>
+              </div>
+            </div>
           </header>
 
-          {/* Player Profile & Actions */}
+          {/* Player Profile */}
           <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700 shadow-sm">
-            <div className="flex items-center space-x-4 mb-4">
+            <div className="flex items-center space-x-4">
               <div className="relative">
                 <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-700">
                   <Image
@@ -1543,31 +1568,6 @@ export default function Home() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => setShowLeaderboard(true)}
-                className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
-                title="Leaderboard"
-              >
-                <Trophy className="w-4 h-4 text-gray-300" />
-                <span className="text-xs font-semibold text-gray-300">Board</span>
-              </button>
-              <button
-                onClick={() => setShowMultiplierInfo(true)}
-                className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
-                title="Multipliers"
-              >
-                <Zap className="w-4 h-4 text-gray-300" />
-                <span className="text-xs font-semibold text-gray-300">Perks</span>
-              </button>
-              <button
-                onClick={() => setShowSettings(true)}
-                className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
-              >
-                <Settings className="w-4 h-4 text-gray-300" />
-                <span className="text-xs font-semibold text-gray-300">More</span>
-              </button>
-            </div>
           </div>
 
           {/* Player Stats */}
@@ -1582,11 +1582,21 @@ export default function Home() {
             <h2 className="text-lg font-bold text-white text-center mb-4">Choose Game Mode</h2>
             
             <button
-              onClick={() => setGameMode('multiplayer')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
+              onClick={createOnlineGame}
+              disabled={isSearching}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
             >
-              <Users className="w-5 h-5" />
-              <span className="text-base">Random Multiplayer</span>
+              {isSearching ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <>
+                  <Users className="w-5 h-5" />
+                  <span className="text-base">Random Multiplayer</span>
+                </>
+              )}
             </button>
             
             <button
@@ -1630,6 +1640,46 @@ export default function Home() {
               />
             )}
           </AnimatePresence>
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-gray-800/90 backdrop-blur-xl border-t border-gray-600/50 shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/30 via-gray-800/20 to-transparent pointer-events-none"></div>
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-500/50 to-transparent"></div>
+          <div className="max-w-md mx-auto relative">
+            <div className="grid grid-cols-3 relative">
+              <button
+                onClick={() => setShowLeaderboard(true)}
+                className="p-5 flex flex-col items-center justify-center space-y-2 hover:bg-gradient-to-t hover:from-blue-500/20 hover:to-blue-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
+                title="Leaderboard"
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-blue-500/0 group-hover:from-blue-500/10 to-transparent transition-all duration-500"></div>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-blue-400 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                <Trophy className="w-6 h-6 text-gray-300 group-hover:text-blue-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
+                <span className="text-xs font-semibold text-gray-300 group-hover:text-blue-400 transition-all duration-500 relative z-10">Board</span>
+              </button>
+              <button
+                onClick={() => setShowMultiplierInfo(true)}
+                className="p-5 flex flex-col items-center justify-center space-y-2 hover:bg-gradient-to-t hover:from-yellow-500/20 hover:to-yellow-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
+                title="Multipliers"
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/0 group-hover:from-yellow-500/10 to-transparent transition-all duration-500"></div>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-yellow-400 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                <Zap className="w-6 h-6 text-gray-300 group-hover:text-yellow-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
+                <span className="text-xs font-semibold text-gray-300 group-hover:text-yellow-400 transition-all duration-500 relative z-10">Perks</span>
+              </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-5 flex flex-col items-center justify-center space-y-2 hover:bg-gradient-to-t hover:from-purple-500/20 hover:to-purple-400/5 transition-all duration-500 group relative overflow-hidden active:scale-95"
+                title="Settings"
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-purple-500/0 group-hover:from-purple-500/10 to-transparent transition-all duration-500"></div>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-purple-400 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+                <Settings className="w-6 h-6 text-gray-300 group-hover:text-purple-400 group-hover:scale-110 transition-all duration-500 relative z-10 drop-shadow-lg" />
+                <span className="text-xs font-semibold text-gray-300 group-hover:text-purple-400 transition-all duration-500 relative z-10">More</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
