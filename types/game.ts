@@ -8,6 +8,7 @@ export interface Player {
   gamesWon: number
   difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
   walletAddress?: string
+  walletAvatar?: string  // ENS avatar or generated avatar from wallet address
   privyUserId?: string
   farcasterProfile?: {
     fid: number

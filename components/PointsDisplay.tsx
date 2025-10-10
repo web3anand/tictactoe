@@ -13,51 +13,63 @@ interface PointsDisplayProps {
 export default function PointsDisplay({ player, currentMultiplier, streak }: PointsDisplayProps) {
   const winRate = player.gamesPlayed > 0 ? (player.gamesWon / player.gamesPlayed) * 100 : 0
 
+  const stats = [
+    {
+      icon: Star,
+      value: player.points.toLocaleString(),
+      label: 'Points',
+      color: 'text-base-yellow',
+      bgColor: 'bg-base-yellow/10',
+    },
+    {
+      icon: Zap,
+      value: `${currentMultiplier.toFixed(1)}x`,
+      label: 'Multiplier',
+      color: 'text-base-cerulean',
+      bgColor: 'bg-base-cerulean/10',
+    },
+    {
+      icon: Target,
+      value: streak,
+      label: 'Streak',
+      color: 'text-base-red',
+      bgColor: 'bg-base-red/10',
+    },
+    {
+      icon: Trophy,
+      value: `${winRate.toFixed(0)}%`,
+      label: 'Win Rate',
+      color: 'text-base-green',
+      bgColor: 'bg-base-green/10',
+    },
+  ]
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="grid grid-cols-2 gap-2 mb-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ staggerChildren: 0.1, delayChildren: 0.2 }}
+      className="grid grid-cols-2 gap-4 mb-8"
     >
-      {/* Total Points */}
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
-      >
-        <Star className="w-4 h-4 mx-auto mb-1 text-yellow-500" />
-        <div className="text-sm font-bold text-foreground">{player.points.toLocaleString()}</div>
-        <div className="text-xs text-muted-foreground">Points</div>
-      </motion.div>
-
-      {/* Current Multiplier */}
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
-      >
-        <Zap className="w-4 h-4 mx-auto mb-1 text-purple-500" />
-        <div className="text-sm font-bold text-foreground">{currentMultiplier}x</div>
-        <div className="text-xs text-muted-foreground">Multiplier</div>
-      </motion.div>
-
-      {/* Win Streak */}
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
-      >
-        <Target className="w-4 h-4 mx-auto mb-1 text-red-500" />
-        <div className="text-sm font-bold text-foreground">{streak}</div>
-        <div className="text-xs text-muted-foreground">Streak</div>
-      </motion.div>
-
-      {/* Win Rate */}
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-2 text-center hover:bg-white/10 transition-all duration-200"
-      >
-        <Trophy className="w-4 h-4 mx-auto mb-1 text-green-500" />
-        <div className="text-sm font-bold text-foreground">{winRate.toFixed(1)}%</div>
-        <div className="text-xs text-muted-foreground">Win Rate</div>
-      </motion.div>
+      {stats.map((stat, index) => (
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut', delay: index * 0.1 }}
+          className="bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-sm"
+        >
+          <div className="flex items-center space-x-3">
+            <div className={`p-3 ${stat.bgColor} rounded-xl ${stat.color}`}>
+              <stat.icon className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-white">{stat.value}</div>
+              <div className="text-sm text-gray-400 font-medium">{stat.label}</div>
+            </div>
+          </div>
+        </motion.div>
+      ))}
     </motion.div>
   )
 }

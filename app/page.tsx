@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { 
@@ -15,10 +15,47 @@ import {
   Copy,
   User,
   ArrowLeft,
-  Shield
+  Shield,
+  PlusCircle,
+  LogIn
 } from 'lucide-react'
 import { useAccount, useDisconnect } from 'wagmi'
 import PrivyAuth from '@/components/PrivyAuth'
+
+// Utility function to get avatar for wallet address
+const getWalletAvatar = async (walletAddress: string): Promise<string> => {
+  try {
+    // Try to get ENS avatar first
+    const ensResponse = await fetch(`https://metadata.ens.domains/mainnet/avatar/${walletAddress}`)
+    if (ensResponse.ok) {
+      const ensData = await ensResponse.text()
+      if (ensData && ensData.startsWith('http')) {
+        return ensData
+      }
+    }
+  } catch (error) {
+    console.log('ENS avatar not found, using generated avatar')
+  }
+  
+  // Fallback to generated avatar using DiceBear API
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${walletAddress}&backgroundColor=transparent`
+}
+
+// Utility function to get profile picture
+const getProfilePicture = (player: Player): string => {
+  // Priority: Farcaster avatar > Wallet avatar > Generated avatar
+  if (player.farcasterProfile?.avatar) {
+    return player.farcasterProfile.avatar
+  }
+  if (player.walletAvatar) {
+    return player.walletAvatar
+  }
+  if (player.walletAddress) {
+    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.walletAddress}&backgroundColor=transparent`
+  }
+  // Fallback to generated avatar based on name
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=transparent`
+}
 
 // Mobile performance optimization utilities
 const getMobileOptimizedTransition = (duration = 0.3) => ({
@@ -64,7 +101,7 @@ export default function Home() {
   const [privyUserData, setPrivyUserData] = useState<any>(null)
 
   // Game state
-  const [gameMode, setGameMode] = useState<'menu' | 'multiplayer' | 'singleplayer'>('menu')
+  const [gameMode, setGameMode] = useState<'menu' | 'multiplayer' | 'singleplayer' | 'friend'>('menu')
   const [player, setPlayer] = useState<Player | null>(null)
   const [game, setGame] = useState<Game | null>(null)
   const [botPlayer, setBotPlayer] = useState<Player | null>(null)
@@ -95,9 +132,11 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false)
   const [showUsernameSetup, setShowUsernameSetup] = useState(false)
   const [usernameInput, setUsernameInput] = useState('')
-  const [usernameError, setUsernameError] = useState('')
+  const [usernameError, setUsernameError] = useState<string | null>(null)
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
+  const usernameTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [hasManuallyLoggedOut, setHasManuallyLoggedOut] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [showVictoryPopup, setShowVictoryPopup] = useState(false)
   const [victoryData, setVictoryData] = useState<{
     winner: string
@@ -109,6 +148,7 @@ export default function Home() {
     pointsEarned: number
     isDraw: boolean
   } | null>(null)
+  const [joinGameId, setJoinGameId] = useState('');
 
   // Load player from localStorage
   useEffect(() => {
@@ -159,7 +199,7 @@ export default function Home() {
 
   // Removed problematic auto-login to prevent FC_undefined issues
 
-  const createPlayer = async (name: string, privyData?: any) => {
+  const createPlayer = useCallback(async (name: string, privyData?: any) => {
     console.log('👤 Creating/loading player:', name, privyData)
     
     // Reset the manual logout flag when creating a player
@@ -183,6 +223,7 @@ export default function Home() {
             
             if (existingPlayer) {
               // Use existing player data
+              const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
               newPlayer = {
                 id: existingPlayer.id,
                 name: existingPlayer.display_name || existingPlayer.username || name,
@@ -190,6 +231,7 @@ export default function Home() {
                 gamesPlayed: existingPlayer.games_played || 0,
                 gamesWon: existingPlayer.games_won || 0,
                 walletAddress: walletAddr,
+                walletAvatar,
                 privyUserId: privyData?.id,
                 privyProfile: privyData || null
               }
@@ -221,6 +263,7 @@ export default function Home() {
           const createData = await createResponse.json()
           if (createData.success && createData.player) {
             // Use player data from API
+            const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
             newPlayer = {
               id: createData.player.id,
               name: createData.player.name || name,
@@ -228,6 +271,7 @@ export default function Home() {
               gamesPlayed: createData.player.gamesPlayed || 0,
               gamesWon: createData.player.gamesWon || 0,
               walletAddress: walletAddr,
+              walletAvatar,
               privyUserId: privyData?.id,
               privyProfile: privyData || null
             }
@@ -249,13 +293,16 @@ export default function Home() {
     
     if (existingPlayer) {
       // Restore existing player
+      const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
       newPlayer = {
         ...existingPlayer,
+        walletAvatar: walletAvatar || existingPlayer.walletAvatar,
         privyUserId: privyData?.id || existingPlayer.privyUserId,
         privyProfile: privyData || existingPlayer.privyProfile
       }
     } else {
       // Create new player
+      const walletAvatar = walletAddr ? await getWalletAvatar(walletAddr) : undefined
       newPlayer = {
         id: Math.random().toString(36).substring(2, 15),
         name,
@@ -263,6 +310,7 @@ export default function Home() {
         gamesPlayed: 0,
         gamesWon: 0,
         walletAddress: walletAddr,
+        walletAvatar,
         privyUserId: privyData?.id,
         privyProfile: privyData || null
       }
@@ -274,12 +322,12 @@ export default function Home() {
     setPlayer(newPlayer)
     localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
     
-    // Update leaderboard
-    updateLeaderboard()
-  }
+    // Update leaderboard (call the function directly instead of reference)
+    // updateLeaderboard will be called later in useEffect
+  }, [address])
 
-  // Handle Privy authentication
-  const handlePrivyAuthenticated = (userData: any) => {
+  // Handle Privy authentication - memoized to prevent infinite loops
+  const handlePrivyAuthenticated = useCallback((userData: any) => {
     console.log('🔐 Privy authentication successful:', userData)
     
     // Don't proceed with authentication if user manually logged out
@@ -343,12 +391,15 @@ export default function Home() {
       setUsernameInput('')
       setUsernameError('')
     }
-  }
+  }, [hasManuallyLoggedOut, createPlayer])
 
   const handlePrivyLogout = () => {
-    console.log('🚪 Privy logout initiated')
-    setIsPrivyAuthenticated(false)
-    setPrivyUserData(null)
+    console.log('🚪 Privy logout initiated from main page')
+    
+    // Set flag to prevent auto-login immediately
+    setHasManuallyLoggedOut(true)
+    
+    // Call main logout handler which will handle all cleanup
     handleLogout()
   }
 
@@ -427,11 +478,18 @@ export default function Home() {
     return { isAvailable: true }
   }
 
-  const handleUsernameInput = async (value: string) => {
+  const handleUsernameInput = (value: string) => {
+    // Always update the input immediately for better UX
     setUsernameInput(value)
-    setUsernameError('')
+    setUsernameError(null)
     
     if (!value.trim()) {
+      setIsCheckingUsername(false)
+      // Clear any previous timeout
+      if (usernameTimeoutRef.current) {
+        clearTimeout(usernameTimeoutRef.current)
+        usernameTimeoutRef.current = null
+      }
       return
     }
     
@@ -439,24 +497,46 @@ export default function Home() {
     const validation = validateUsername(value)
     if (!validation.isValid) {
       setUsernameError(validation.error || 'Invalid username')
+      setIsCheckingUsername(false)
       return
     }
     
-    // Check availability with debouncing
+    // Check availability with improved debouncing
     setIsCheckingUsername(true)
     
-    // Simple debouncing
-    setTimeout(async () => {
-      const availability = await checkUsernameAvailability(value)
-      if (!availability.isAvailable) {
-        setUsernameError(availability.error || 'Username not available')
+    // Clear any previous timeout
+    if (usernameTimeoutRef.current) {
+      clearTimeout(usernameTimeoutRef.current)
+    }
+    
+    // Set new timeout for availability check
+    usernameTimeoutRef.current = setTimeout(async () => {
+      try {
+        const availability = await checkUsernameAvailability(value)
+        if (!availability.isAvailable) {
+          setUsernameError(availability.error || 'Username not available')
+        }
+      } catch (error) {
+        console.error('Username check error:', error)
+      } finally {
+        setIsCheckingUsername(false)
       }
-      setIsCheckingUsername(false)
-    }, 500)
+    }, 300)
   }
 
   const handleUsernameSetup = async () => {
-    if (!usernameInput.trim() || !privyUserData) return
+    // Username is mandatory - show error if empty
+    if (!usernameInput.trim()) {
+      setUsernameError('Username is required')
+      setIsCheckingUsername(false)
+      return
+    }
+    
+    if (!privyUserData) {
+      setUsernameError('Authentication data missing')
+      setIsCheckingUsername(false)
+      return
+    }
     
     setUsernameError('')
     setIsCheckingUsername(true)
@@ -508,28 +588,10 @@ export default function Home() {
     // Close modal
     setShowUsernameSetup(false)
     setUsernameInput('')
-    setUsernameError('')
+    setUsernameError(null)
     setIsCheckingUsername(false)
     setUsernameError('')
     setIsCheckingUsername(false)
-  }
-
-  const handleSkipUsernameSetup = () => {
-    if (!privyUserData) return
-    
-    // Use default name
-    let defaultName = 'Anonymous Player'
-    if (privyUserData.farcaster?.username) {
-      defaultName = `@${privyUserData.farcaster.username}`
-    } else if (privyUserData.email) {
-      defaultName = privyUserData.email.split('@')[0]
-    } else if (privyUserData.wallet) {
-      defaultName = `Player_${privyUserData.wallet.slice(0, 6)}`
-    }
-    
-    createPlayer(defaultName, privyUserData)
-    setShowUsernameSetup(false)
-    setUsernameInput('')
   }
 
   const handleGuestLogin = (name: string) => {
@@ -632,16 +694,30 @@ export default function Home() {
 
   // Logout function
   const handleLogout = () => {
+    // Prevent multiple simultaneous logout attempts
+    if (isLoggingOut) {
+      console.log('🚫 Logout already in progress, skipping...')
+      return
+    }
+    
+    setIsLoggingOut(true)
+    
     try {
       console.log('🚪 Starting logout process...')
       
       // Set manual logout flag first to prevent auto-login
       setHasManuallyLoggedOut(true)
       
+      // Clear any pending username validation immediately
+      if (usernameTimeoutRef.current) {
+        clearTimeout(usernameTimeoutRef.current)
+        usernameTimeoutRef.current = null
+      }
+      
       // Close username setup modal if open
       setShowUsernameSetup(false)
       setUsernameInput('')
-      setUsernameError('')
+      setUsernameError(null)
       setIsCheckingUsername(false)
       
       // Clear Privy state
@@ -686,6 +762,9 @@ export default function Home() {
       if (isConnected) {
         disconnect()
       }
+    } finally {
+      // Reset logout flag regardless of success or error
+      setIsLoggingOut(false)
     }
   }
 
@@ -1010,6 +1089,52 @@ export default function Home() {
     setGameMode('multiplayer')
   }
 
+  const handleCreateGame = async () => {
+    if (!player) return;
+    try {
+      const response = await fetch('/api/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player1Id: player.id,
+          boardSize: 3, // Or some other default/chosen size
+          gameType: 'friend' 
+        }),
+      });
+      const newGame = await response.json();
+      if (response.ok) {
+        setGame(newGame);
+        setGameMode('friend');
+      } else {
+        throw new Error(newGame.error || 'Failed to create game');
+      }
+    } catch (error) {
+      console.error('Error creating game:', error);
+      // You might want to show an error to the user here
+    }
+  };
+
+  const handleJoinGame = async () => {
+    if (!player || joinGameId.length !== 6) return;
+    try {
+      const response = await fetch(`/api/games/${joinGameId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player2Id: player.id }),
+      });
+      const updatedGame = await response.json();
+      if (response.ok) {
+        setGame(updatedGame);
+        setGameMode('friend');
+      } else {
+        throw new Error(updatedGame.error || 'Failed to join game');
+      }
+    } catch (error) {
+      console.error('Error joining game:', error);
+      // You might want to show an error to the user here (e.g., game not found)
+    }
+  };
+
   const makeMove = async (position: number) => {
     if (!game || !player) return
 
@@ -1285,18 +1410,17 @@ export default function Home() {
   // If no player, show login (now with Privy integration)
   if (!player) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-sm w-full space-y-6"
-        >
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="max-w-md w-full space-y-6 bg-gray-900 rounded-lg p-8 shadow-lg border border-gray-800">
           <div className="text-center">
-            <Crown className="w-16 h-16 text-brand mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-foreground mb-6">Basetok</h1>
+            <div className="w-16 h-16 bg-blue-600 rounded-lg mx-auto mb-6 flex items-center justify-center">
+              <Crown className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">Basetok</h1>
+            <p className="text-gray-400">Your onchain gaming experience</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Privy Authentication */}
             <PrivyAuth 
               onAuthenticated={handlePrivyAuthenticated}
@@ -1307,25 +1431,18 @@ export default function Home() {
           {/* Username Setup Modal */}
           <AnimatePresence>
             {showUsernameSetup && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-              >
-                <motion.div
-                  initial={{ y: 20 }}
-                  animate={{ y: 0 }}
-                  className="bg-card/90 backdrop-blur-md border border-border rounded-xl p-6 w-full max-w-sm"
-                >
-                  <div className="text-center mb-4">
-                    <User className="w-12 h-12 text-brand mx-auto mb-2" />
-                    <h3 className="text-lg font-bold text-foreground">Choose Your Username</h3>
-                    <p className="text-sm text-muted-foreground mb-2">This will be displayed on the leaderboard</p>
-                    <p className="text-xs text-muted-foreground">4-20 characters, letters, numbers, _, @, ., - only</p>
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-gray-900 rounded-lg p-8 w-full max-w-md shadow-xl border border-gray-800">
+                  <div className="text-center mb-6">
+                    <div className="w-12 h-12 bg-blue-600 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white mb-2">Choose Username</h3>
+                    <p className="text-gray-400 mb-2">Required for leaderboard</p>
+                    <p className="text-sm text-gray-500">4-20 characters, letters, numbers, _, @, ., - only</p>
                   </div>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div>
                       <input
                         type="text"
@@ -1333,10 +1450,11 @@ export default function Home() {
                         onChange={(e) => handleUsernameInput(e.target.value)}
                         placeholder="Enter your username"
                         autoFocus
-                        className={`w-full px-3 py-3 bg-muted/50 border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 transition-colors ${
+                        required
+                        className={`w-full px-4 py-3 border rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
                           usernameError 
-                            ? 'border-red-500 focus:ring-red-500/50' 
-                            : 'border-border focus:ring-brand'
+                            ? 'border-red-500 focus:ring-red-500' 
+                            : 'border-gray-700 focus:ring-blue-500 focus:border-blue-500'
                         }`}
                         maxLength={20}
                         onKeyDown={(e) => {
@@ -1346,50 +1464,42 @@ export default function Home() {
                         }}
                       />
                       {/* Username validation feedback */}
-                      <div className="mt-2 min-h-[1.25rem]">
+                      <div className="mt-3 min-h-[1.5rem]">
                         {isCheckingUsername && (
-                          <div className="flex items-center space-x-1 text-xs text-yellow-500">
-                            <div className="w-3 h-3 border border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="flex items-center space-x-2 text-sm text-blue-400">
+                            <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
                             <span>Checking availability...</span>
                           </div>
                         )}
                         {usernameError && !isCheckingUsername && (
-                          <p className="text-xs text-red-500">{usernameError}</p>
+                          <p className="text-sm text-red-400">{usernameError}</p>
                         )}
                         {!usernameError && !isCheckingUsername && usernameInput.trim() && (
-                          <p className="text-xs text-green-500">Username is available!</p>
+                          <p className="text-sm text-green-400">Username is available!</p>
                         )}
                       </div>
                     </div>
                     
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={handleSkipUsernameSetup}
-                        className="flex-1 bg-muted hover:bg-muted/80 text-foreground font-medium py-3 px-4 rounded-lg transition-colors"
-                      >
-                        Skip
-                      </button>
-                      <button
-                        onClick={handleUsernameSetup}
-                        disabled={!usernameInput.trim() || !!usernameError || isCheckingUsername}
-                        className="flex-1 bg-brand hover:bg-brand/90 disabled:bg-muted disabled:text-muted-foreground text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-1"
-                      >
-                        {isCheckingUsername ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Checking</span>
-                          </>
-                        ) : (
-                          <span>Save</span>
-                        )}
-                      </button>
-                    </div>
+                    <button
+                      onClick={handleUsernameSetup}
+                      disabled={!usernameInput.trim() || !!usernameError || isCheckingUsername}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                    >
+                      {isCheckingUsername ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Checking</span>
+                        </>
+                      ) : (
+                        <span>Continue</span>
+                      )}
+                    </button>
                   </div>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
       </div>
     )
   }
@@ -1397,76 +1507,68 @@ export default function Home() {
   // Main menu
   if (gameMode === 'menu') {
     return (
-      <div className="min-h-screen p-4">
-        <div className="max-w-sm mx-auto">
+      <div className="min-h-screen bg-gray-900 p-4">
+        <div className="max-w-md mx-auto">
           {/* Header */}
-          <motion.header
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={getMobileOptimizedTransition(0.3)}
-            className="mb-6"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Crown className="w-6 h-6 text-yellow-400" />
-                <h1 className="text-lg font-bold text-foreground">Basetok</h1>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowLeaderboard(true)}
-                  className="p-2 bg-card hover:bg-accent rounded-lg transition-colors duration-200 border border-border"
-                  title="Leaderboard"
-                >
-                  <Trophy className="w-4 h-4 text-foreground" />
-                </button>
-                <button
-                  onClick={() => setShowMultiplierInfo(true)}
-                  className="p-2 bg-card hover:bg-accent rounded-lg transition-colors duration-200 border border-border"
-                  title="Multipliers"
-                >
-                  <Zap className="w-4 h-4 text-foreground" />
-                </button>
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="p-2 bg-card hover:bg-accent rounded-lg transition-colors duration-200 border border-border"
-                >
-                  <Settings className="w-4 h-4 text-foreground" />
-                </button>
-              </div>
-            </div>
+          <header className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-white">Basetok</h1>
+          </header>
 
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Welcome, {player.name}!</p>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="text-xs bg-white/10 hover:bg-white/20 border border-white/20 px-2 py-1 rounded transition-all duration-300"
-                  >
-                    Settings
-                  </button>
+          {/* Player Profile & Actions */}
+          <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700 shadow-sm">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-gray-700">
+                  <Image
+                    src={getProfilePicture(player)}
+                    alt={`${player.name}'s avatar`}
+                    width={48}
+                    height={48}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=transparent`
+                    }}
+                  />
                 </div>
               </div>
-              {/* Show authentication status */}
-              {isPrivyAuthenticated && privyUserData && (
-                <div className="flex items-center space-x-2 mt-1">
-                  <Shield className="w-4 h-4 text-green-500" />
-                  <span className="text-xs text-green-400">Privy Connected</span>
-                  {privyUserData.farcaster && (
-                    <span className="text-xs text-purple-400">@{privyUserData.farcaster.username}</span>
-                  )}
-                </div>
-              )}
-              {player.walletAddress && (
-                <div className="flex items-center space-x-2 mt-1">
-                  <User className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs text-muted-foreground">
-                    {player.walletAddress.slice(0, 6)}...{player.walletAddress.slice(-4)}
-                  </span>
-                </div>
-              )}
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-white">Welcome, {player.name}!</h2>
+                {player.walletAddress && (
+                  <div className="flex items-center space-x-1.5 text-gray-400">
+                    <User className="w-3.5 h-3.5" />
+                    <span className="text-xs font-mono">
+                      {player.walletAddress.slice(0, 6)}...{player.walletAddress.slice(-4)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          </motion.header>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setShowLeaderboard(true)}
+                className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+                title="Leaderboard"
+              >
+                <Trophy className="w-4 h-4 text-gray-300" />
+                <span className="text-xs font-semibold text-gray-300">Board</span>
+              </button>
+              <button
+                onClick={() => setShowMultiplierInfo(true)}
+                className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+                title="Multipliers"
+              >
+                <Zap className="w-4 h-4 text-gray-300" />
+                <span className="text-xs font-semibold text-gray-300">Perks</span>
+              </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2"
+              >
+                <Settings className="w-4 h-4 text-gray-300" />
+                <span className="text-xs font-semibold text-gray-300">More</span>
+              </button>
+            </div>
+          </div>
 
           {/* Player Stats */}
           <PointsDisplay
@@ -1476,38 +1578,25 @@ export default function Home() {
           />
 
           {/* Game Mode Selection */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={getMobileOptimizedTransition(0.3)}
-            className="space-y-4 mb-6"
-          >
-            <h2 className="text-lg font-semibold text-foreground text-center">Choose Game Mode</h2>
+          <div className="space-y-3">
+            <h2 className="text-lg font-bold text-white text-center mb-4">Choose Game Mode</h2>
             
             <button
               onClick={() => setGameMode('multiplayer')}
-              className={getMobileOptimizedClasses(
-                "w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2",
-                "bg-card/80"
-              )}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
             >
               <Users className="w-5 h-5" />
-              <span>Random Multiplayer (6x6)</span>
+              <span className="text-base">Random Multiplayer</span>
             </button>
             
             <button
               onClick={() => setGameMode('singleplayer')}
-              className={getMobileOptimizedClasses(
-                "w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2",
-                "bg-card/80"
-              )}
+              className="w-full bg-gray-800 border-2 border-gray-700 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
             >
               <User className="w-5 h-5" />
-              <span>Play with Friends (Code)</span>
+              <span className="text-base">Play with Friends</span>
             </button>
-          </motion.div>
-
-          {/* Removed Farcaster Actions - will add Privy social features later */}
+          </div>
 
           {/* Modals */}
           <AnimatePresence>
@@ -1537,7 +1626,7 @@ export default function Home() {
                   setPlayer(updatedPlayer)
                   updateLeaderboard()
                 }}
-                onLogout={handleLogout}
+                onLogout={handlePrivyLogout}
               />
             )}
           </AnimatePresence>
@@ -1549,7 +1638,7 @@ export default function Home() {
   // Single Player Mode - Friend Code
   if (gameMode === 'singleplayer') {
     return (
-      <div className="min-h-screen p-4">
+      <div className="min-h-screen bg-gray-90 p-4">
         <div className="max-w-sm mx-auto">
           {/* Header */}
           <motion.header
@@ -1559,182 +1648,77 @@ export default function Home() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                <Crown className="w-6 h-6 text-yellow-400" />
-                <h1 className="text-lg font-bold text-foreground">Play with Friends</h1>
+                <Users className="w-6 h-6 text-base-blue" />
+                <h1 className="text-lg font-bold text-white">Play with Friends</h1>
               </div>
               <button
                 onClick={() => setGameMode('menu')}
-                className="p-3 bg-card hover:bg-accent rounded-lg transition-all duration-200 border border-border flex items-center space-x-2"
+                className="p-2 bg-gray-80 hover:bg-gray-70 rounded-lg transition-all duration-200 border border-gray-60 flex items-center space-x-2"
               >
-                <ArrowLeft className="w-5 h-5 text-foreground" />
-                <span className="text-sm font-medium text-foreground">Back</span>
+                <ArrowLeft className="w-4 h-4 text-gray-30" />
+                <span className="text-sm text-gray-30">Menu</span>
               </button>
             </div>
           </motion.header>
 
-          {/* Player Stats */}
-          <PointsDisplay
-            player={player}
-            currentMultiplier={calculateMultiplier(gameState.moves, gameState.streak)}
-            streak={gameState.streak}
-          />
-
-          {/* Friend Code Options */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="space-y-4 mb-6"
-          >
-            <h2 className="text-lg font-semibold text-foreground text-center">Choose Option</h2>
-            
-            <button
-              onClick={() => setShowCreateRoom(true)}
-              className="w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+          {/* Create or Join Game */}
+          <div className="space-y-6">
+            {/* Create Game */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-gray-80 border border-gray-60 rounded-2xl p-6"
             >
-              <Search className="w-5 h-5" />
-              <span>Create Room & Get Code</span>
-            </button>
-            
-            <button
-              onClick={() => setShowJoinRoom(true)}
-              className="w-full bg-card/60 backdrop-blur-md hover:bg-card/80 border border-border text-foreground font-bold py-4 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
+              <div className="flex items-center space-x-3 mb-4">
+                <PlusCircle className="w-6 h-6 text-base-green" />
+                <h2 className="text-xl font-bold text-white">Create a New Game</h2>
+              </div>
+              <p className="text-gray-30 mb-4">
+                Start a new game and share the code with your friend.
+              </p>
+              <button
+                onClick={handleCreateGame}
+                className="w-full bg-base-blue hover:bg-base-blue/90 text-white font-bold py-3 px-4 rounded-xl transition-all"
+              >
+                Create Game
+              </button>
+            </motion.div>
+
+            {/* Join Game */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-gray-80 border border-gray-60 rounded-2xl p-6"
             >
-              <User className="w-5 h-5" />
-              <span>Join with Friend Code</span>
-            </button>
-          </motion.div>
-
-          {/* Create Room Modal */}
-          <AnimatePresence>
-            {showCreateRoom && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-              >
-                <motion.div
-                  initial={{ y: 20 }}
-                  animate={{ y: 0 }}
-                  className="bg-card/80 backdrop-blur-md border border-border rounded-xl p-6 w-full max-w-sm"
+              <div className="flex items-center space-x-3 mb-4">
+                <LogIn className="w-6 h-6 text-base-yellow" />
+                <h2 className="text-xl font-bold text-white">Join with Code</h2>
+              </div>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={joinGameId}
+                  onChange={(e) => setJoinGameId(e.target.value.toUpperCase())}
+                  placeholder="ENTER CODE"
+                  className="flex-grow px-4 py-3 bg-gray-70 border-2 border-gray-60 rounded-xl text-white placeholder-gray-40 focus:outline-none focus:ring-2 focus:ring-base-blue focus:border-transparent transition-all tracking-widest text-center"
+                  maxLength={6}
+                />
+                <button
+                  onClick={handleJoinGame}
+                  disabled={joinGameId.length !== 6}
+                  className="bg-base-green hover:bg-base-green/90 disabled:bg-gray-60 disabled:text-gray-40 text-white font-bold py-3 px-4 rounded-xl transition-all"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-foreground">Create Room</h3>
-                    <button
-                      onClick={() => setShowCreateRoom(false)}
-                      className="p-1 hover:bg-accent rounded transition-colors"
-                    >
-                      <X className="w-4 h-4 text-foreground" />
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="bg-muted/50 rounded-lg p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-2">Your Room Code</p>
-                      <div className="flex items-center justify-center space-x-2">
-                        <span className="text-2xl font-bold text-foreground font-mono">
-                          {friendCode || 'GAME' + Math.random().toString(36).substr(2, 4).toUpperCase()}
-                        </span>
-                        <button
-                          onClick={() => {
-                            const code = 'GAME' + Math.random().toString(36).substr(2, 4).toUpperCase()
-                            setFriendCode(code)
-                            navigator.clipboard.writeText(code)
-                          }}
-                          className="p-1 hover:bg-accent rounded transition-colors"
-                          title="Copy code"
-                        >
-                          <Copy className="w-4 h-4 text-foreground" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => {
-                        // Create room logic here
-                        const code = friendCode || 'GAME' + Math.random().toString(36).substr(2, 4).toUpperCase()
-                        setFriendCode(code)
-                        createPrivateRoom(code)
-                        setShowCreateRoom(false)
-                      }}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                    >
-                      Create Room
-                    </button>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Join Room Modal */}
-          <AnimatePresence>
-            {showJoinRoom && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-              >
-                <motion.div
-                  initial={{ y: 20 }}
-                  animate={{ y: 0 }}
-                  className="bg-card/80 backdrop-blur-md border border-border rounded-xl p-6 w-full max-w-sm"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-foreground">Join Room</h3>
-                    <button
-                      onClick={() => setShowJoinRoom(false)}
-                      className="p-1 hover:bg-accent rounded transition-colors"
-                    >
-                      <X className="w-4 h-4 text-foreground" />
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Enter Friend's Room Code
-                      </label>
-                      <input
-                        type="text"
-                        value={joinCode}
-                        onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                        placeholder="GAMEXXXX"
-                        className="w-full px-3 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-center text-lg"
-                        maxLength={8}
-                      />
-                    </div>
-                    
-                    {error && (
-                      <p className="text-destructive text-sm text-center">{error}</p>
-                    )}
-                    
-                    <button
-                      onClick={() => {
-                        if (joinCode.length >= 4) {
-                          joinPrivateRoom(joinCode)
-                          setShowJoinRoom(false)
-                        } else {
-                          setError('Please enter a valid room code')
-                        }
-                      }}
-                      disabled={!joinCode}
-                      className="w-full bg-green-600 hover:bg-green-700 disabled:bg-muted disabled:text-muted-foreground text-white font-bold py-3 px-4 rounded-lg transition-colors"
-                    >
-                      Join Room
-                    </button>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  Join
+                </button>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
-    )
+    );
   }
-
 
   // Multiplayer game
   if (gameMode === 'multiplayer' && game) {
@@ -1980,7 +1964,7 @@ export default function Home() {
           <div className="space-y-4">
             <button
               onClick={createOnlineGame}
-              disabled={isSearching}
+              disabled={ isSearching}
               className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-500 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2"
             >
               {isSearching ? (
@@ -2147,7 +2131,7 @@ function VictoryPopup({
             
             <button
               onClick={onClose}
-              className="w-full py-4 bg-white/90 hover:bg-white text-black rounded-xl font-bold text-lg transition-colors duration-200 shadow-lg"
+              className="w-full py-4 bg-base-blue hover:bg-base-blue/90 text-white rounded-xl font-bold text-lg transition-colors duration-200 shadow-lg"
             >
               Continue
             </button>

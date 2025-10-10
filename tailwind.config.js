@@ -7,8 +7,35 @@ module.exports = {
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       colors: {
+        base: {
+          blue: '#0000FF',
+          cerulean: '#3C8AFF',
+          tan: '#B8A581',
+          yellow: '#FFD12F',
+          pink: '#FEA8CD',
+          green: '#66C800',
+          'lime-green': '#B6F569',
+          red: '#FC401F',
+        },
+        gray: {
+          0: '#FFFFFF',
+          10: '#EEF0F3',
+          15: '#DEE1E7',
+          30: '#B1B7C3',
+          50: '#717886',
+          60: '#5B616E',
+          80: '#32353D',
+          100: '#0A0B0D',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -42,32 +69,15 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        neutral: {
-          DEFAULT: '#E9ECEF',
-          light: '#F8F9FA',
-          medium: '#DEE2E6',
-          dark: '#CED4DA',
-        },
-        brand: {
-          DEFAULT: '#4A90E2',
-          light: '#7FB5E8',
-          dark: '#2E6DB4',
-        },
-        'accent-custom': {
-          DEFAULT: '#50E3C2',
-          light: '#8AF0D7',
-          dark: '#34C7A9',
-        },
-        text: {
-          DEFAULT: '#212529',
-          light: '#495057',
-          subtle: '#6C757D',
-        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        mono: ['Roboto Mono', 'monospace'],
       },
       keyframes: {
         wiggle: {

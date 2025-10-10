@@ -1,138 +1,134 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { X, Trophy, Crown, Medal, Award } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { X, Trophy } from 'lucide-react'
+import Image from 'next/image'
 
 interface Player {
-  id: string
-  name: string
-  points: number
-  gamesPlayed: number
-  gamesWon: number
-  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master'
-  walletAddress?: string
-  xProfile?: {
-    username: string
-    displayName: string
-    avatar: string
-    ethosScore: number
-  }
+  id: string;
+  name: string;
+  points: number;
+  gamesPlayed: number;
+  gamesWon: number;
+  walletAddress?: string;
+  farcasterProfile?: {
+    fid: number;
+    username: string;
+    displayName: string;
+    avatar: string;
+    bio: string;
+  };
 }
 
 interface LeaderboardProps {
-  leaderboard: Player[]
-  onClose: () => void
+  leaderboard: Player[];
+  onClose: () => void;
 }
 
 export default function Leaderboard({ leaderboard, onClose }: LeaderboardProps) {
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <Crown className="w-6 h-6 text-yellow-400" />
-      case 1:
-        return <Medal className="w-6 h-6 text-gray-300" />
-      case 2:
-        return <Award className="w-6 h-6 text-amber-600" />
-      default:
-        return <Trophy className="w-5 h-5 text-primary-400" />
-    }
-  }
-
-  const getRankColor = (index: number) => {
-    switch (index) {
-      case 0:
-        return 'border-yellow-400/70 shadow-yellow-400/20 shadow-md'
-      case 1:
-        return 'border-gray-400/70 shadow-gray-400/20 shadow-md'
-      case 2:
-        return 'border-amber-500/70 shadow-amber-500/20 shadow-md'
-      default:
-        return 'border-blue-400/50 shadow-blue-400/10 shadow-sm'
-    }
-  }
+  const topPlayers = leaderboard.slice(0, 3);
+  const otherPlayers = leaderboard.slice(3);
 
   return (
-    <AnimatePresence>
+    <motion.div
+      className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-        onClick={onClose}
+        className="bg-gray-800 w-full max-w-md rounded-t-2xl p-5 shadow-2xl border-t border-gray-700"
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          className="bg-white/95 dark:bg-black/95 backdrop-blur-md rounded-xl p-4 max-w-sm w-full max-h-[85vh] overflow-y-auto mx-2 border border-white/20 dark:border-white/10"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-2">
-              <Trophy className="w-6 h-6 text-yellow-400" />
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Leaderboard</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-white/20 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-900 dark:text-white" />
-            </button>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-5">
+          <div className="flex items-center space-x-2.5">
+            <Trophy className="w-5 h-5 text-yellow-400" />
+            <h2 className="text-lg font-bold text-white">Leaderboard</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-full bg-gray-700 hover:bg-gray-600 transition-colors"
+          >
+            <X className="w-4 h-4 text-gray-300" />
+          </button>
+        </div>
 
-          {/* Leaderboard List */}
-          <div className="space-y-2">
-            {leaderboard.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-6 text-gray-600 dark:text-gray-300"
-              >
-                <Trophy className="w-12 h-12 mx-auto mb-3 text-primary-400/50" />
-                <p className="text-sm text-gray-700 dark:text-gray-200">No players yet!</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Be the first to play and climb the leaderboard!</p>
-              </motion.div>
-            ) : (
-              leaderboard.map((player, index) => (
-                <motion.div
-                  key={player.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`p-3 rounded-lg bg-white/10 dark:bg-white/5 backdrop-blur-sm border border-white/20 dark:border-white/10 transition-all duration-300 hover:bg-white/20 dark:hover:bg-white/10 hover:border-white/30 dark:hover:border-white/20 ${getRankColor(index)}`}
+        {/* Top 3 Players */}
+        <div className="grid grid-cols-3 gap-4 mb-6 text-center">
+          {topPlayers.map((player, index) => (
+            <div key={player.id} className="flex flex-col items-center">
+              <div className="relative mb-2">
+                <Image
+                  src={getProfilePicture(player)}
+                  alt={player.name}
+                  width={index === 0 ? 72 : 64}
+                  height={index === 0 ? 72 : 64}
+                  className="rounded-full border-2"
+                  style={{ borderColor: getRankColor(index + 1) }}
+                />
+                <div 
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{ 
+                    backgroundColor: getRankColor(index + 1),
+                    color: index === 0 ? '#000' : '#fff'
+                  }}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 dark:bg-white/20">
-                        {getRankIcon(index)}
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-32">{player.name}</div>
-                          <div className="text-xs text-gray-600 dark:text-gray-300">
-                            {player.gamesPlayed} games
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  {index + 1}
+                </div>
+              </div>
+              <p className="font-semibold text-white truncate w-full text-sm">{player.name}</p>
+              <p className="text-base font-bold text-blue-400">{player.points.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
 
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900 dark:text-white">
-                        {player.points.toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300">
-                        {player.gamesWon}/{player.gamesPlayed}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </div>
-        </motion.div>
+        {/* Other Players List */}
+        <div className="space-y-2 overflow-y-auto max-h-[45vh] no-scrollbar">
+          {otherPlayers.map((player, index) => (
+            <div key={player.id} className="flex items-center bg-gray-900/50 p-2.5 rounded-lg">
+              <div className="flex items-center space-x-3 flex-1">
+                <span className="text-sm font-medium text-gray-400 w-5 text-center">{index + 4}</span>
+                <Image
+                  src={getProfilePicture(player)}
+                  alt={player.name}
+                  width={36}
+                  height={36}
+                  className="rounded-full"
+                />
+                <div>
+                  <p className="font-semibold text-white text-sm">{player.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {player.gamesPlayed} games • {player.gamesPlayed > 0 ? Math.round((player.gamesWon / player.gamesPlayed) * 100) : 0}% win rate
+                  </p>
+                </div>
+              </div>
+              <p className="text-base font-bold text-blue-400">{player.points.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
       </motion.div>
-    </AnimatePresence>
-  )
+    </motion.div>
+  );
+}
+
+const getRankColor = (rank: number) => {
+  switch (rank) {
+    case 1: return '#FFD700'; // Gold
+    case 2: return '#C0C0C0'; // Silver
+    case 3: return '#CD7F32'; // Bronze
+    default: return '#4A5568'; // gray-600
+  }
+};
+
+function getProfilePicture(player: Player) {
+  if (player.farcasterProfile?.avatar) {
+    return player.farcasterProfile.avatar;
+  }
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}&backgroundColor=transparent`;
 }
