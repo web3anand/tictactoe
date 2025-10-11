@@ -35,14 +35,15 @@ export default function Leaderboard({ leaderboard, onClose }: LeaderboardProps) 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       onClick={onClose}
     >
       <motion.div
         className="bg-gray-800 w-full max-w-md rounded-t-2xl p-5 shadow-2xl border-t border-gray-700"
-        initial={{ y: "100%" }}
+        initial={{ y: "50%" }}
         animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        exit={{ y: "50%" }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

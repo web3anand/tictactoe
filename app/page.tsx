@@ -46,8 +46,14 @@ const getMobileOptimizedTransition = (duration = 0.3) => ({
 
 const getMobileOptimizedClasses = (defaultClasses: string, mobileClasses?: string) => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  if (isMobile && mobileClasses) {
-    return defaultClasses.replace(/backdrop-blur-md/g, '').replace(/backdrop-blur-sm/g, '') + ' ' + mobileClasses;
+  if (isMobile) {
+    // Remove expensive effects on mobile for better performance
+    const optimized = defaultClasses
+      .replace(/backdrop-blur-md/g, '')
+      .replace(/backdrop-blur-sm/g, '')
+      .replace(/shadow-2xl/g, 'shadow-lg')
+      .replace(/shadow-xl/g, 'shadow-md');
+    return optimized + (mobileClasses ? ' ' + mobileClasses : '');
   }
   return defaultClasses;
 };
@@ -108,6 +114,13 @@ export default function Home() {
     streak: 0
   })
 
+  // Turn timer state
+  const [turnTimeLeft, setTurnTimeLeft] = useState(5)
+  const [isTimerActive, setIsTimerActive] = useState(false)
+  const [currentTurnPlayer, setCurrentTurnPlayer] = useState<'X' | 'O' | null>(null)
+  const [consecutiveMissedTurns, setConsecutiveMissedTurns] = useState(0)
+  const turnTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   // UI state
   const [leaderboard, setLeaderboard] = useState<Player[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
@@ -131,6 +144,44 @@ export default function Home() {
     pointsEarned: number
     isDraw: boolean
   } | null>(null)
+
+  // Helper function to randomly determine starting player
+  const getRandomStartingPlayer = (): 'X' | 'O' => {
+    return Math.random() < 0.5 ? 'X' : 'O'
+  }
+
+  // Helper function to trigger bot move
+  const triggerBotMove = (currentGame: Game) => {
+    if (!currentGame || currentGame.gameOver || currentGame.currentPlayer !== 'O' || !botPlayer) {
+      return
+    }
+
+    const randomDelay = Math.random() * 2000 + 500 // Random delay between 0.5-2.5 seconds
+    
+    setTimeout(() => {
+      // Check if game state is still valid
+      if (!game || game.gameOver || game.currentPlayer !== 'O') {
+        return
+      }
+
+      const botMove = getBotMove({
+        board: game.board,
+        currentPlayer: game.currentPlayer,
+        gameOver: game.gameOver,
+        winner: game.winner,
+        moves: game.moves
+      }, 'O', botPlayer?.difficulty || 'human')
+
+      if (botMove !== -1) {
+        // Make the bot move by simulating a position click
+        // This will trigger the existing makeMove logic
+        const positionButton = document.querySelector(`[data-position="${botMove}"]`) as HTMLButtonElement
+        if (positionButton && !positionButton.disabled) {
+          positionButton.click()
+        }
+      }
+    }, randomDelay)
+  }
 
   // Load player from localStorage
   useEffect(() => {
@@ -1055,16 +1106,20 @@ export default function Home() {
     setIsSearching(true)
     setError('')
     
-    try {
-      const response = await fetch('/api/games', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          playerId: player.id,
-          playerName: player.name,
-          walletAddress: player.walletAddress
+    // Add a small natural delay before matchmaking (0.5-1.5 seconds)
+    const matchmakingDelay = Math.random() * 1000 + 500
+    
+    setTimeout(async () => {
+      try {
+        const response = await fetch('/api/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            playerId: player.id,
+            playerName: player.name,
+            walletAddress: player.walletAddress
+          })
         })
-      })
 
       const data = await response.json()
 
@@ -1097,12 +1152,14 @@ export default function Home() {
         setIsBotGame(true)
         setIsSearching(false)
         
+        const randomStartingPlayer = getRandomStartingPlayer()
+        
         const mockGame: Game = {
           id: Math.random().toString(36).substring(2, 15),
           roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
           player1: player,
           player2: bot,
-          currentPlayer: 'X',
+          currentPlayer: randomStartingPlayer,
           board: Array(36).fill(''),
           gameOver: false,
           moves: 0,
@@ -1119,12 +1176,14 @@ export default function Home() {
       setBotPlayer(bot)
       setIsBotGame(true)
       
+      const randomStartingPlayer = getRandomStartingPlayer()
+      
       const mockGame: Game = {
         id: Math.random().toString(36).substring(2, 15),
         roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
         player1: player,
         player2: bot,
-        currentPlayer: 'X',
+        currentPlayer: randomStartingPlayer,
         board: Array(36).fill(''),
         gameOver: false,
         moves: 0,
@@ -1137,6 +1196,7 @@ export default function Home() {
     } finally {
       setIsSearching(false)
     }
+    }, matchmakingDelay)
   }
 
   const joinGame = async () => {
@@ -1185,12 +1245,14 @@ export default function Home() {
     setBotPlayer(bot)
     setIsBotGame(true)
     
+    const randomStartingPlayer = getRandomStartingPlayer()
+    
     const mockGame: Game = {
       id: Math.random().toString(36).substring(2, 15),
       roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
       player1: player, // Human player is always player1 (X)
       player2: bot,    // Bot is always player2 (O)
-      currentPlayer: 'X',
+      currentPlayer: randomStartingPlayer,
       board: Array(36).fill(''),
       gameOver: false,
       moves: 0,
@@ -1202,8 +1264,131 @@ export default function Home() {
     setGameMode('multiplayer')
   }
 
+  // Turn timer functions
+  const startTurnTimer = (currentPlayer: 'X' | 'O') => {
+    // Clear any existing timer
+    if (turnTimerRef.current) {
+      clearInterval(turnTimerRef.current)
+    }
+    
+    setCurrentTurnPlayer(currentPlayer)
+    setTurnTimeLeft(5)
+    setIsTimerActive(true)
+    
+    turnTimerRef.current = setInterval(() => {
+      setTurnTimeLeft(prev => {
+        if (prev <= 1) {
+          // Time's up! Switch to next player
+          handleTimeUp()
+          return 5
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  const stopTurnTimer = () => {
+    if (turnTimerRef.current) {
+      clearInterval(turnTimerRef.current)
+      turnTimerRef.current = null
+    }
+    setIsTimerActive(false)
+    setCurrentTurnPlayer(null)
+  }
+
+  const handleTimeUp = () => {
+    if (!game) return
+    
+    // Increment missed turns counter
+    const newMissedTurns = consecutiveMissedTurns + 1
+    setConsecutiveMissedTurns(newMissedTurns)
+    
+    // If both players have missed 2 turns each (4 total), end the game as a draw
+    if (newMissedTurns >= 4) {
+      // Stop timer and end game
+      stopTurnTimer()
+      
+      // Set game as over with a draw
+      setGame(prevGame => prevGame ? { 
+        ...prevGame, 
+        gameOver: true,
+        winner: 'Draw'
+      } : null)
+      
+      // Reset missed turns
+      setConsecutiveMissedTurns(0)
+      return
+    }
+    
+    // Stop the current timer
+    stopTurnTimer()
+    
+    // Switch to the next player
+    const nextPlayer = game.currentPlayer === 'X' ? 'O' : 'X'
+    setGame(prevGame => prevGame ? { ...prevGame, currentPlayer: nextPlayer } : null)
+    
+    // If next player is bot and game is still active, trigger bot move immediately
+    if (isBotGame && nextPlayer === 'O' && !game.gameOver) {
+      // Trigger bot move after a short delay to allow state to update
+      setTimeout(() => {
+        if (game && !game.gameOver && game.currentPlayer === 'O') {
+          // Simulate a bot move by calling the bot logic
+          triggerBotMove(game)
+        }
+      }, 500)
+    } else {
+      // Start timer for next player (human vs human or human player in bot game)
+      setTimeout(() => {
+        if (game && !game.gameOver) {
+          startTurnTimer(nextPlayer)
+        }
+      }, 100)
+    }
+  }
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (turnTimerRef.current) {
+        clearInterval(turnTimerRef.current)
+      }
+    }
+  }, [])
+
+  // Start timer when game starts or current player changes
+  useEffect(() => {
+    if (game && !game.gameOver && gameMode === 'multiplayer') {
+      // Reset missed turns when starting a new game or round
+      setConsecutiveMissedTurns(0)
+      
+      // If it's the bot's turn, trigger bot move instead of starting timer
+      if (isBotGame && game.currentPlayer === 'O') {
+        triggerBotMove(game)
+      } else {
+        // Start timer for human players
+        startTurnTimer(game.currentPlayer as 'X' | 'O')
+      }
+    } else {
+      stopTurnTimer()
+    }
+  }, [game?.currentPlayer, game?.gameOver, gameMode])
+
   const makeMove = async (position: number) => {
     if (!game || !player) return
+
+    // Enforce turn-based play: Only allow the current player to move
+    const isMyTurn = (player.id === game.player1.id && game.currentPlayer === 'X') || 
+                     (game.player2 && player.id === game.player2.id && game.currentPlayer === 'O')
+    
+    if (!isMyTurn) {
+      return
+    }
+
+    // Stop the timer when a move is made
+    stopTurnTimer()
+    
+    // Reset missed turns counter since a player made a move
+    setConsecutiveMissedTurns(0)
 
     if (isBotGame) {
       // Handle bot game locally
@@ -1334,17 +1519,20 @@ export default function Home() {
         setShowVictoryPopup(true)
       }
 
-      // Bot makes move immediately
+      // Bot makes move after a human-like delay (0-3 seconds) for strategic gameplay
       if (!gameOver && updatedGame.currentPlayer === 'O') {
-        const botMove = getBotMove({
-          board: updatedGame.board,
-          currentPlayer: updatedGame.currentPlayer,
-          gameOver: updatedGame.gameOver,
-          winner: updatedGame.winner,
-          moves: updatedGame.moves
-        }, 'O', botPlayer?.difficulty || 'human')
+        const randomDelay = Math.random() * 3000 // Random delay between 0-3 seconds
+        
+        setTimeout(() => {
+          const botMove = getBotMove({
+            board: updatedGame.board,
+            currentPlayer: updatedGame.currentPlayer,
+            gameOver: updatedGame.gameOver,
+            winner: updatedGame.winner,
+            moves: updatedGame.moves
+          }, 'O', botPlayer?.difficulty || 'human')
 
-        if (botMove !== -1) {
+          if (botMove !== -1) {
             // Make bot move after delay
             const botBoard = [...updatedGame.board]
             botBoard[botMove] = 'O'
@@ -1434,6 +1622,7 @@ export default function Home() {
             setShowVictoryPopup(true)
           }
         } // Close the if (botMove !== -1) block
+        }, randomDelay) // Close setTimeout with delay
       }
     } else {
       // Handle online game
@@ -1471,12 +1660,14 @@ export default function Home() {
       const nextBot = createBotPlayer(nextBotIndex)
       setBotPlayer(nextBot)
       
+      const randomStartingPlayer = getRandomStartingPlayer()
+      
       const newGame: Game = {
         id: Math.random().toString(36).substring(2, 15),
         roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
         player1: player, // Human player is always player1 (X)
         player2: nextBot, // New bot is always player2 (O)
-        currentPlayer: 'X',
+        currentPlayer: randomStartingPlayer,
         board: Array(36).fill(''),
         gameOver: false,
         moves: 0,
@@ -1959,28 +2150,64 @@ export default function Home() {
           <div className="mb-4 flex justify-center">
             <div className="w-[380px] flex gap-2">
               {/* Player 1 Card */}
-              <div className="w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/5 backdrop-blur-md border border-white/10">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-cyan-500">
-                  <span className="text-white font-bold text-sm">X</span>
+              <div className={`w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/5 backdrop-blur-md border transition-all duration-300 ${
+                game.currentPlayer === 'X' && !game.gameOver && !isBotGame
+                  ? 'border-cyan-400 shadow-cyan-400/20' 
+                  : 'border-white/10'
+              }`}>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-cyan-500">
+                  <Image
+                    src={getProfilePicture(game.player1)}
+                    alt={`${game.player1.name}'s avatar`}
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm text-cyan-500 font-medium">Player 1</p>
-                  <p className="text-sm font-bold text-foreground truncate">{game.player1.name}</p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-bold text-foreground truncate">{game.player1.name}</p>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      game.currentPlayer === 'X' && !game.gameOver && !isBotGame
+                        ? 'bg-cyan-400 animate-pulse' 
+                        : 'bg-cyan-500'
+                    }`}>
+                      <span className="text-white font-bold text-xs">X</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Player 2 Card */}
-              <div className="w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/5 backdrop-blur-md border border-white/10">
+              <div className={`w-1/2 h-auto rounded-xl p-3 shadow-lg relative overflow-hidden flex items-center space-x-3 bg-white/5 backdrop-blur-md border transition-all duration-300 ${
+                game.currentPlayer === 'O' && !game.gameOver && !isBotGame && game.player2
+                  ? 'border-pink-400 shadow-pink-400/20' 
+                  : 'border-white/10'
+              }`}>
                 {game.player2 ? (
                   <>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-pink-500">
-                      <span className="text-white font-bold text-sm">O</span>
+                    <div className="w-8 h-8 rounded-lg overflow-hidden border border-pink-500">
+                      <Image
+                        src={getProfilePicture(game.player2)}
+                        alt={`${game.player2.name}'s avatar`}
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-pink-500 font-medium">Player 2</p>
-                      <p className="text-sm font-bold text-foreground truncate">
-                        {game.player2.name}
-                      </p>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm font-bold text-foreground truncate">
+                          {game.player2.name}
+                        </p>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 ${
+                          game.currentPlayer === 'O' && !game.gameOver && !isBotGame
+                            ? 'bg-pink-400 animate-pulse' 
+                            : 'bg-pink-500'
+                        }`}>
+                          <span className="text-white font-bold text-xs">O</span>
+                        </div>
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -1994,6 +2221,118 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* Turn Timer Display */}
+          {isTimerActive && !game.gameOver && gameMode === 'multiplayer' && 
+           (game.player2 || (isBotGame && currentTurnPlayer === 'X')) && (
+            <div className="mb-4 flex justify-center px-4">
+              <div className="relative">
+                {/* Compact timer container */}
+                <div className={`relative bg-gradient-to-r from-black/50 via-black/30 to-black/20 backdrop-blur-xl border border-white/25 rounded-2xl px-6 py-3 flex items-center space-x-4 shadow-2xl transition-all duration-300 ${
+                  currentTurnPlayer === 'X' 
+                    ? 'shadow-cyan-500/25 border-cyan-400/30' 
+                    : 'shadow-pink-500/25 border-pink-400/30'
+                } ${
+                  turnTimeLeft <= 2 ? 'animate-pulse scale-105' : 'hover:scale-105'
+                }`}>
+                  
+                  {/* Player info - more compact */}
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${
+                      currentTurnPlayer === 'X' ? 'bg-cyan-400' : 'bg-pink-400'
+                    }`} />
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-sm font-semibold ${
+                        currentTurnPlayer === 'X' ? 'text-cyan-100' : 'text-pink-100'
+                      }`}>
+                        {currentTurnPlayer === 'X' ? game.player1.name : game.player2?.name || 'Player 2'}
+                      </span>
+                      <span className="text-xs text-white/50 font-medium">Your Turn</span>
+                    </div>
+                  </div>
+
+                  {/* Compact circular timer */}
+                  <div className="relative">
+                    {/* Background circle - smaller */}
+                    <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 40 40">
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="16"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                        className="text-white/10"
+                      />
+                      {/* Progress circle */}
+                      <circle
+                        cx="20"
+                        cy="20"
+                        r="16"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                        strokeLinecap="round"
+                        className={`transition-all duration-1000 ease-linear ${
+                          turnTimeLeft <= 2 
+                            ? 'text-red-400' 
+                            : turnTimeLeft <= 3
+                            ? 'text-yellow-400'
+                            : currentTurnPlayer === 'X' ? 'text-cyan-400' : 'text-pink-400'
+                        }`}
+                        strokeDasharray="100.53"
+                        strokeDashoffset={100.53 - (100.53 * turnTimeLeft / 5)}
+                      />
+                    </svg>
+                    
+                    {/* Timer number - smaller */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className={`text-lg font-bold transition-all duration-300 drop-shadow-lg ${
+                        turnTimeLeft <= 2 
+                          ? 'text-red-400 animate-bounce drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' 
+                          : turnTimeLeft <= 3
+                          ? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(250,204,21,0.6)]'
+                          : currentTurnPlayer === 'X' 
+                          ? 'text-cyan-400 drop-shadow-[0_0_6px_rgba(34,211,238,0.6)]' 
+                          : 'text-pink-400 drop-shadow-[0_0_6px_rgba(244,114,182,0.6)]'
+                      }`}>
+                        {turnTimeLeft}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Fallback Turn Indicator (when timer is not active) */}
+          {!isTimerActive && gameMode === 'multiplayer' && game && !game.gameOver && 
+           (game.player2 || isBotGame) && (
+            <div className="mb-4 flex justify-center px-4">
+              <div className="relative">
+                {/* Compact turn indicator container */}
+                <div className={`relative bg-gradient-to-r from-black/50 via-black/30 to-black/20 backdrop-blur-xl border border-white/25 rounded-2xl px-6 py-3 flex items-center space-x-3 shadow-lg transition-all duration-300 hover:scale-105 ${
+                  game.currentPlayer === 'X' 
+                    ? 'border-cyan-400/30 shadow-cyan-500/20' 
+                    : 'border-pink-400/30 shadow-pink-500/20'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${
+                    game.currentPlayer === 'X' ? 'bg-cyan-400' : 'bg-pink-400'
+                  }`} />
+                  <span className={`text-sm font-semibold ${
+                    game.currentPlayer === 'X' ? 'text-cyan-100' : 'text-pink-100'
+                  }`}>
+                    {game.currentPlayer === 'X' ? game.player1.name : (game.player2?.name || 'Player 2')}'s Turn
+                  </span>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-lg ${
+                    game.currentPlayer === 'X' ? 'bg-cyan-500' : 'bg-pink-500'
+                  }`}>
+                    {game.currentPlayer}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Game Board - 6x6 */}
           <div className="mb-4 flex justify-center">
@@ -2010,8 +2349,15 @@ export default function Home() {
               {game.board.map((cell, index) => (
                 <motion.button
                   key={index}
+                  data-position={index}
                   onClick={() => makeMove(index)}
-                  disabled={!!cell || game.gameOver || (!isBotGame && !game.player2)}
+                  disabled={!!cell || game.gameOver || (!isBotGame && !game.player2) || 
+                    // Turn enforcement: disable if it's not the current player's turn
+                    (!isBotGame && player && (
+                      (player.id === game.player1.id && game.currentPlayer !== 'X') || 
+                      (game.player2 && player.id === game.player2.id && game.currentPlayer !== 'O')
+                    ))
+                  }
                   className={getMobileOptimizedClasses(
                     `relative bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/20 ${
                       cell ? 'pixel-reveal pixel-grid-effect' : ''
@@ -2087,25 +2433,11 @@ export default function Home() {
                 )}
               </div>
             ) : (
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Current Player: <span className={`font-bold ${game.currentPlayer === 'X' ? 'text-blue-400' : 'text-red-400'}`}>
-                    {game.currentPlayer}
-                  </span>
-                </p>
+              <div className="text-sm text-muted-foreground">
+                {/* Game in progress - could show current player indicator here if needed */}
               </div>
             )}
           </div>
-
-          {/* Multiplier Info */}
-          {game.multiplier > 1 && (
-            <div className="bg-white/10 dark:bg-white/5 backdrop-blur-md border border-white/20 dark:border-white/10 rounded-lg p-3 mb-4">
-              <div className="flex items-center justify-center space-x-2">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm font-semibold text-foreground">Multiplier: {game.multiplier}x</span>
-              </div>
-            </div>
-          )}
 
           {/* Victory Popup */}
           <AnimatePresence>
@@ -2276,56 +2608,52 @@ function VictoryPopup({
           duration: isMobile ? 0.2 : 0.3,
           ease: "easeOut"
         }}
-        className="relative w-full max-w-md h-[600px] bg-cover bg-center rounded-2xl shadow-2xl overflow-hidden border-2 border-white/10"
+        className="relative w-full max-w-sm h-[500px] bg-cover bg-center rounded-2xl shadow-2xl overflow-hidden border-2 border-white/20"
         style={{ backgroundImage: getBackgroundImage() }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
         
-        <div className="relative z-10 flex flex-col justify-end h-full p-6 text-white">
+        <div className="relative z-10 flex flex-col justify-end h-full p-5 text-white">
           <h1 
-            className={`text-5xl font-black mb-4 tracking-tighter text-center ${getTitleColor()}`}
-            style={{ textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}
+            className={`text-4xl font-black mb-3 tracking-tighter text-center ${getTitleColor()}`}
+            style={{ textShadow: '0 4px 10px rgba(0,0,0,0.7)' }}
           >
             {getTitle()}
           </h1>
 
-          {/* Player Profiles */}
-          <div className="flex items-center justify-around mb-4">
+          {/* Player Profiles - More Compact */}
+          <div className="flex items-center justify-center gap-4 mb-3">
             <PlayerAvatar player={victoryData.winnerProfile} isWinner={!victoryData.isDraw} />
-            <div className="text-2xl font-black text-gray-400 px-2">VS</div>
+            <div className="text-xl font-black text-gray-400">VS</div>
             <PlayerAvatar player={victoryData.loserProfile} isWinner={false} />
           </div>
 
           {!victoryData.isDraw && (
-            <p className="text-center text-lg font-semibold mb-4">
-              <span className="font-bold text-yellow-300">{victoryData.winnerProfile.name}</span> defeated <span className="opacity-80">{victoryData.loserProfile.name}</span>
+            <p className="text-center text-base font-semibold mb-4 leading-tight">
+              <span className="font-bold text-yellow-300">{victoryData.winnerProfile.name}</span> defeated <span className="opacity-75">{victoryData.loserProfile.name}</span>
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-4 mb-6 text-center">
-            <div className="bg-white/10 rounded-xl p-3">
-              <div className="text-3xl font-bold">{victoryData.multiplier}x</div>
-              <div className="text-sm opacity-75">Multiplier</div>
+          <div className="grid grid-cols-2 gap-3 mb-5 text-center">
+            <div className="bg-white/15 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+              <div className="text-2xl font-bold text-yellow-300">{victoryData.multiplier}x</div>
+              <div className="text-xs opacity-75">Multiplier</div>
             </div>
-            <div className="bg-white/10 rounded-xl p-3">
-              <div className="text-3xl font-bold">
+            <div className="bg-white/15 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+              <div className="text-2xl font-bold text-green-400">
                 {isWinner ? `+${victoryData.pointsEarned}` : '0'}
               </div>
-              <div className="text-sm opacity-75">Points Earned</div>
+              <div className="text-xs opacity-75">Points Earned</div>
             </div>
           </div>
 
-          <div className="space-y-3">
-            {/* Removed Farcaster Share - will add Privy social sharing later */}
-            
-            <button
-              onClick={onClose}
-              className="w-full py-4 bg-base-blue hover:bg-base-blue/90 text-white rounded-xl font-bold text-lg transition-colors duration-200 shadow-lg"
-            >
-              Continue
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-bold text-base transition-all duration-200 shadow-lg"
+          >
+            Continue
+          </button>
         </div>
       </motion.div>
     </motion.div>
@@ -2343,15 +2671,17 @@ function PlayerAvatar({ player, isWinner }: { player: Player, isWinner: boolean 
         <img 
           src={avatarUrl} 
           alt={player.name} 
-          className={`w-24 h-24 rounded-lg object-cover border-4 ${isWinner ? 'border-yellow-400' : 'border-gray-500'}`}
+          className={`w-20 h-20 rounded-lg object-cover border-3 transition-all duration-200 ${
+            isWinner 
+              ? 'border-yellow-400 shadow-lg shadow-yellow-400/30' 
+              : 'border-gray-500 opacity-75'
+          }`}
         />
         {isWinner && (
-          <div className="absolute -top-2 -right-2 text-3xl animate-pulse">
-            👑
-          </div>
+          <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 animate-pulse" />
         )}
       </div>
-      <p className="mt-2 font-bold text-sm w-28 truncate">{player.name}</p>
+      <p className="mt-2 font-bold text-xs w-20 truncate">{player.name}</p>
     </div>
   )
 }

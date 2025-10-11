@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Settings, User, LogOut } from 'lucide-react'
 import Image from 'next/image'
+import { Player } from '@/types/game'
 
 // New pixel art avatar generation system - BLACK & WHITE ONLY
 const generatePixelArtAvatar = (seed: string, size: number = 64): string => {
@@ -17,23 +18,6 @@ const getProfilePicture = (player: Player): string => {
   // Use new pixel art generation system - black & white with minimal blue
   const seed = player.walletAddress || player.name || player.id
   return generatePixelArtAvatar(seed, 48);
-}
-
-interface Player {
-  id: string
-  name: string
-  points: number
-  gamesPlayed: number
-  gamesWon: number
-  difficulty?: 'easy' | 'medium' | 'hard' | 'expert' | 'master' | 'human'
-  walletAddress?: string
-  farcasterProfile?: {
-    fid: number;
-    username: string;
-    displayName: string;
-    avatar: string;
-    bio: string;
-  };
 }
 
 interface SettingsModalProps {
