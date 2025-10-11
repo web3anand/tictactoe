@@ -9,10 +9,10 @@ import {
   Users, 
   Crown, 
   Settings, 
+  Copy, 
   X, 
   Search, 
   RefreshCw, 
-  Copy,
   User,
   ArrowLeft,
   Shield
@@ -152,15 +152,23 @@ export default function Home() {
 
   // Helper function to trigger bot move
   const triggerBotMove = (currentGame: Game) => {
-    if (!currentGame || currentGame.gameOver || currentGame.currentPlayer !== 'O' || !botPlayer) {
+    if (!currentGame || currentGame.gameOver || !botPlayer) {
       return
     }
 
-    const randomDelay = Math.random() * 2000 + 500 // Random delay between 0.5-2.5 seconds
+    // Determine which symbol the bot is using and if it's the bot's turn
+    const botSymbol = currentGame.player1.id.startsWith('bot_') ? 'X' : 'O'
+    const isCurrentlyBotTurn = currentGame.currentPlayer === botSymbol
+
+    if (!isCurrentlyBotTurn) {
+      return
+    }
+
+    const randomDelay = Math.random() * 2000 + 1500 // Random delay between 1.5-3.5 seconds (more human-like)
     
     setTimeout(() => {
       // Check if game state is still valid
-      if (!game || game.gameOver || game.currentPlayer !== 'O') {
+      if (!game || game.gameOver || game.currentPlayer !== botSymbol) {
         return
       }
 
@@ -170,15 +178,11 @@ export default function Home() {
         gameOver: game.gameOver,
         winner: game.winner,
         moves: game.moves
-      }, 'O', botPlayer?.difficulty || 'human')
+      }, botSymbol, botPlayer?.difficulty || 'human')
 
       if (botMove !== -1) {
-        // Make the bot move by simulating a position click
-        // This will trigger the existing makeMove logic
-        const positionButton = document.querySelector(`[data-position="${botMove}"]`) as HTMLButtonElement
-        if (positionButton && !positionButton.disabled) {
-          positionButton.click()
-        }
+        // Directly call makeMove function instead of clicking buttons
+        makeMove(botMove, true)
       }
     }, randomDelay)
   }
@@ -1153,12 +1157,13 @@ export default function Home() {
         setIsSearching(false)
         
         const randomStartingPlayer = getRandomStartingPlayer()
+        const randomSides = Math.random() < 0.5
         
         const mockGame: Game = {
           id: Math.random().toString(36).substring(2, 15),
           roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-          player1: player,
-          player2: bot,
+          player1: randomSides ? player : bot,
+          player2: randomSides ? bot : player,
           currentPlayer: randomStartingPlayer,
           board: Array(36).fill(''),
           gameOver: false,
@@ -1177,12 +1182,13 @@ export default function Home() {
       setIsBotGame(true)
       
       const randomStartingPlayer = getRandomStartingPlayer()
+      const randomSides = Math.random() < 0.5
       
       const mockGame: Game = {
         id: Math.random().toString(36).substring(2, 15),
         roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-        player1: player,
-        player2: bot,
+        player1: randomSides ? player : bot,
+        player2: randomSides ? bot : player,
         currentPlayer: randomStartingPlayer,
         board: Array(36).fill(''),
         gameOver: false,
@@ -1246,12 +1252,13 @@ export default function Home() {
     setIsBotGame(true)
     
     const randomStartingPlayer = getRandomStartingPlayer()
+    const randomSides = Math.random() < 0.5 // Random side assignment
     
     const mockGame: Game = {
       id: Math.random().toString(36).substring(2, 15),
       roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-      player1: player, // Human player is always player1 (X)
-      player2: bot,    // Bot is always player2 (O)
+      player1: randomSides ? player : bot, // Randomly assign who is X
+      player2: randomSides ? bot : player, // Randomly assign who is O
       currentPlayer: randomStartingPlayer,
       board: Array(36).fill(''),
       gameOver: false,
@@ -1327,12 +1334,16 @@ export default function Home() {
     const nextPlayer = game.currentPlayer === 'X' ? 'O' : 'X'
     setGame(prevGame => prevGame ? { ...prevGame, currentPlayer: nextPlayer } : null)
     
-    // If next player is bot and game is still active, trigger bot move immediately
-    if (isBotGame && nextPlayer === 'O' && !game.gameOver) {
+    // Check if next player is bot
+    const isNextPlayerBot = isBotGame && (
+      (nextPlayer === 'X' && game.player1.id.startsWith('bot_')) ||
+      (nextPlayer === 'O' && game.player2?.id.startsWith('bot_'))
+    )
+    
+    if (isNextPlayerBot && !game.gameOver) {
       // Trigger bot move after a short delay to allow state to update
       setTimeout(() => {
-        if (game && !game.gameOver && game.currentPlayer === 'O') {
-          // Simulate a bot move by calling the bot logic
+        if (game && !game.gameOver) {
           triggerBotMove(game)
         }
       }, 500)
@@ -1361,8 +1372,13 @@ export default function Home() {
       // Reset missed turns when starting a new game or round
       setConsecutiveMissedTurns(0)
       
-      // If it's the bot's turn, trigger bot move instead of starting timer
-      if (isBotGame && game.currentPlayer === 'O') {
+      // Determine if current player is the bot
+      const isBotTurn = isBotGame && (
+        (game.currentPlayer === 'X' && game.player1.id.startsWith('bot_')) ||
+        (game.currentPlayer === 'O' && game.player2?.id.startsWith('bot_'))
+      )
+      
+      if (isBotTurn) {
         triggerBotMove(game)
       } else {
         // Start timer for human players
@@ -1373,14 +1389,15 @@ export default function Home() {
     }
   }, [game?.currentPlayer, game?.gameOver, gameMode])
 
-  const makeMove = async (position: number) => {
+  const makeMove = async (position: number, isBotMove: boolean = false) => {
     if (!game || !player) return
 
     // Enforce turn-based play: Only allow the current player to move
     const isMyTurn = (player.id === game.player1.id && game.currentPlayer === 'X') || 
                      (game.player2 && player.id === game.player2.id && game.currentPlayer === 'O')
     
-    if (!isMyTurn) {
+    // For bot moves, skip the turn validation
+    if (!isBotMove && !isMyTurn) {
       return
     }
 
@@ -1475,8 +1492,10 @@ export default function Home() {
       // Update player stats when game ends and show victory popup regardless of winner
       if (gameOver && winner && winner !== 'Draw' && player && botPlayer) {
         const pointsEarned = Math.floor(100 * multiplier)
-        // Human player is always X, bot is always O
-        const isPlayerWinner = (winner === 'X')
+        
+        // Determine which symbol the human player is using
+        const humanPlayerSymbol = game.player1.id === player.id ? 'X' : 'O'
+        const isPlayerWinner = (winner === humanPlayerSymbol)
         
         const updatedPlayer = {
           ...player,
@@ -1490,8 +1509,8 @@ export default function Home() {
         setVictoryData({
           winner: winner,
           loser: winner === 'X' ? 'O' : 'X',
-          winnerProfile: winner === 'X' ? player : botPlayer,
-          loserProfile: winner === 'X' ? botPlayer : player,
+          winnerProfile: isPlayerWinner ? player : botPlayer,
+          loserProfile: isPlayerWinner ? botPlayer : player,
           multiplier: multiplier,
           moves: newMoves,
           pointsEarned: isPlayerWinner ? pointsEarned : 0,
@@ -1519,23 +1538,31 @@ export default function Home() {
         setShowVictoryPopup(true)
       }
 
-      // Bot makes move after a human-like delay (0-3 seconds) for strategic gameplay
-      if (!gameOver && updatedGame.currentPlayer === 'O') {
-        const randomDelay = Math.random() * 3000 // Random delay between 0-3 seconds
+      // Bot logic disabled to prevent double moves - now handled by triggerBotMove
+      if (false && !isBotMove && !gameOver && isBotGame) {
+        // Determine if current player is bot
+        const currentPlayerIsBot = (
+          (updatedGame.currentPlayer === 'X' && updatedGame.player1.id.startsWith('bot_')) ||
+          (updatedGame.currentPlayer === 'O' && updatedGame.player2?.id.startsWith('bot_'))
+        )
         
-        setTimeout(() => {
-          const botMove = getBotMove({
-            board: updatedGame.board,
-            currentPlayer: updatedGame.currentPlayer,
-            gameOver: updatedGame.gameOver,
-            winner: updatedGame.winner,
-            moves: updatedGame.moves
-          }, 'O', botPlayer?.difficulty || 'human')
+        if (currentPlayerIsBot) {
+          const botSymbol = updatedGame.currentPlayer
+          const randomDelay = Math.random() * 3000 // Random delay between 0-3 seconds
+          
+          setTimeout(() => {
+            const botMove = getBotMove({
+              board: updatedGame.board,
+              currentPlayer: updatedGame.currentPlayer,
+              gameOver: updatedGame.gameOver,
+              winner: updatedGame.winner,
+              moves: updatedGame.moves
+            }, botSymbol, botPlayer?.difficulty || 'human')
 
-          if (botMove !== -1) {
-            // Make bot move after delay
-            const botBoard = [...updatedGame.board]
-            botBoard[botMove] = 'O'
+            if (botMove !== -1) {
+              // Make bot move after delay
+              const botBoard = [...updatedGame.board]
+              botBoard[botMove] = botSymbol
           
           // Check for win again
           let botWinner = null
@@ -1580,9 +1607,11 @@ export default function Home() {
           
           // Show victory popup when bot wins too
           if (botGameOver && botWinner && botWinner !== 'Draw' && player && botPlayer) {
-            // Human player is always X, bot is always O
-            const isPlayerWinner = (botWinner === 'X')
-            const isBotWinner = (botWinner === 'O')
+            // Determine which symbol the human player is using
+            const humanPlayerSymbol = finalGame.player1.id === player.id ? 'X' : 'O'
+            const botPlayerSymbol = humanPlayerSymbol === 'X' ? 'O' : 'X'
+            const isPlayerWinner = (botWinner === humanPlayerSymbol)
+            const isBotWinner = (botWinner === botPlayerSymbol)
             const pointsEarned = isPlayerWinner ? Math.floor(100 * botMultiplier) : 0
             const botPointsEarned = isBotWinner ? Math.floor(100 * botMultiplier) : 0
             
@@ -1612,8 +1641,8 @@ export default function Home() {
             setVictoryData({
               winner: botWinner,
               loser: botWinner === 'X' ? 'O' : 'X',
-              winnerProfile: botWinner === 'X' ? player : botPlayer,
-              loserProfile: botWinner === 'X' ? botPlayer : player,
+              winnerProfile: isPlayerWinner ? player : botPlayer,
+              loserProfile: isPlayerWinner ? botPlayer : player,
               multiplier: botMultiplier,
               moves: botMoves,
               pointsEarned: pointsEarned,
@@ -1623,6 +1652,7 @@ export default function Home() {
           }
         } // Close the if (botMove !== -1) block
         }, randomDelay) // Close setTimeout with delay
+        } // Close the if (currentPlayerIsBot) block
       }
     } else {
       // Handle online game
@@ -1661,12 +1691,13 @@ export default function Home() {
       setBotPlayer(nextBot)
       
       const randomStartingPlayer = getRandomStartingPlayer()
+      const randomSides = Math.random() < 0.5
       
       const newGame: Game = {
         id: Math.random().toString(36).substring(2, 15),
         roomCode: 'BOT' + Math.random().toString(36).substring(2, 6).toUpperCase(),
-        player1: player, // Human player is always player1 (X)
-        player2: nextBot, // New bot is always player2 (O)
+        player1: randomSides ? player : nextBot,
+        player2: randomSides ? nextBot : player,
         currentPlayer: randomStartingPlayer,
         board: Array(36).fill(''),
         gameOver: false,
@@ -2223,8 +2254,7 @@ export default function Home() {
           </div>
 
           {/* Turn Timer Display */}
-          {isTimerActive && !game.gameOver && gameMode === 'multiplayer' && 
-           (game.player2 || (isBotGame && currentTurnPlayer === 'X')) && (
+          {isTimerActive && !game.gameOver && gameMode === 'multiplayer' && (
             <div className="mb-4 flex justify-center px-4">
               <div className="relative">
                 {/* Compact timer container */}
@@ -2550,6 +2580,79 @@ export default function Home() {
   return null
 }
 
+// Helper function to copy victory card as image
+const copyVictoryCardAsImage = async (cardId: string) => {
+  try {
+    const element = document.getElementById(cardId)
+    if (!element) {
+      console.error('Victory card element not found')
+      return false
+    }
+
+    // Create a canvas to draw the element
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      console.error('Failed to get canvas context')
+      return false
+    }
+
+    // Get element dimensions
+    const rect = element.getBoundingClientRect()
+    canvas.width = rect.width * 2 // Higher resolution
+    canvas.height = rect.height * 2
+    ctx.scale(2, 2)
+
+    // Get computed styles and create a simple representation
+    const bgColor = window.getComputedStyle(element).backgroundColor
+    ctx.fillStyle = bgColor || '#000000'
+    ctx.fillRect(0, 0, rect.width, rect.height)
+
+    // Add text content (simplified approach)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 24px sans-serif'
+    ctx.textAlign = 'center'
+    
+    const isWinner = element.querySelector('[data-result="winner"]')
+    const title = isWinner ? 'CONGRATULATIONS!' : 'YOU LOST 💔'
+    ctx.fillText(title, rect.width / 2, 50)
+
+    // Convert to blob and copy to clipboard
+    return new Promise<boolean>((resolve) => {
+      canvas.toBlob(async (blob: Blob | null) => {
+        if (!blob) {
+          console.error('Failed to create image blob')
+          resolve(false)
+          return
+        }
+
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'image/png': blob
+            })
+          ])
+          console.log('Victory card copied to clipboard!')
+          resolve(true)
+        } catch (error) {
+          console.error('Failed to copy to clipboard:', error)
+          // Fallback: download the image
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'victory-card.png'
+          a.click()
+          URL.revokeObjectURL(url)
+          resolve(true)
+        }
+      }, 'image/png', 1.0)
+    })
+  } catch (error) {
+    console.error('Error capturing victory card:', error)
+    return false
+  }
+}
+
 // Victory Popup Component
 function VictoryPopup({ 
   victoryData, 
@@ -2569,6 +2672,23 @@ function VictoryPopup({
   currentPlayer: Player | null
   onClose: () => void 
 }) {
+  const [isCopying, setIsCopying] = useState(false)
+  
+  // Handle copy victory card as image
+  const handleCopyAsImage = async () => {
+    setIsCopying(true)
+    try {
+      const success = await copyVictoryCardAsImage('victory-popup')
+      if (success) {
+        console.log('Victory card copied successfully!')
+      }
+    } catch (error) {
+      console.error('Failed to copy victory card:', error)
+    } finally {
+      setIsCopying(false)
+    }
+  }
+  
   // Removed useProfile - will replace with Privy
   const isInMiniApp = false // We'll handle Mini App detection differently
   const isWinner = !victoryData.isDraw && currentPlayer?.id === victoryData.winnerProfile.id
@@ -2580,12 +2700,27 @@ function VictoryPopup({
 
   const getTitle = () => {
     if (victoryData.isDraw) return "IT'S A DRAW"
-    return isWinner ? 'VICTORY!' : 'DEFEAT'
+    return isWinner ? '🎉 CONGRATULATIONS! 🎉' : '💔 YOU LOST 💔'
   }
 
   const getTitleColor = () => {
     if (victoryData.isDraw) return 'text-gray-200'
-    return isWinner ? 'text-yellow-300' : 'text-red-400'
+    return isWinner ? 'text-yellow-300 drop-shadow-[0_0_20px_rgba(253,224,71,0.5)]' : 'text-red-400 drop-shadow-[0_0_20px_rgba(248,113,113,0.5)]'
+  }
+
+  const getCardBorderColor = () => {
+    if (victoryData.isDraw) return 'border-gray-400/50'
+    return isWinner ? 'border-yellow-400/70 shadow-yellow-400/30' : 'border-red-400/70 shadow-red-400/30'
+  }
+
+  const getSubtitle = () => {
+    if (victoryData.isDraw) return "Better luck next time!"
+    return isWinner ? "Outstanding performance!" : "Don't give up, try again!"
+  }
+
+  const getSubtitleColor = () => {
+    if (victoryData.isDraw) return 'text-gray-300'
+    return isWinner ? 'text-yellow-200' : 'text-red-200'
   }
 
   // Detect mobile device for optimized animations
@@ -2601,6 +2736,7 @@ function VictoryPopup({
       onClick={onClose}
     >
       <motion.div
+        id="victory-popup"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
@@ -2608,7 +2744,7 @@ function VictoryPopup({
           duration: isMobile ? 0.2 : 0.3,
           ease: "easeOut"
         }}
-        className="relative w-full max-w-sm h-[500px] bg-cover bg-center rounded-2xl shadow-2xl overflow-hidden border-2 border-white/20"
+        className={`relative w-full max-w-sm h-[500px] bg-cover bg-center rounded-2xl shadow-2xl overflow-hidden border-2 ${getCardBorderColor()}`}
         style={{ backgroundImage: getBackgroundImage() }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -2616,11 +2752,15 @@ function VictoryPopup({
         
         <div className="relative z-10 flex flex-col justify-end h-full p-5 text-white">
           <h1 
-            className={`text-4xl font-black mb-3 tracking-tighter text-center ${getTitleColor()}`}
+            className={`text-3xl font-black mb-2 tracking-tighter text-center ${getTitleColor()}`}
             style={{ textShadow: '0 4px 10px rgba(0,0,0,0.7)' }}
           >
             {getTitle()}
           </h1>
+
+          <p className={`text-sm font-semibold text-center mb-4 ${getSubtitleColor()}`}>
+            {getSubtitle()}
+          </p>
 
           {/* Player Profiles - More Compact */}
           <div className="flex items-center justify-center gap-4 mb-3">
@@ -2631,29 +2771,51 @@ function VictoryPopup({
 
           {!victoryData.isDraw && (
             <p className="text-center text-base font-semibold mb-4 leading-tight">
-              <span className="font-bold text-yellow-300">{victoryData.winnerProfile.name}</span> defeated <span className="opacity-75">{victoryData.loserProfile.name}</span>
+              {isWinner ? (
+                <>You defeated <span className="opacity-75">{victoryData.loserProfile.name}</span>!</>
+              ) : (
+                <><span className="font-bold text-yellow-300">{victoryData.winnerProfile.name}</span> defeated you!</>
+              )}
             </p>
           )}
 
           <div className="grid grid-cols-2 gap-3 mb-5 text-center">
-            <div className="bg-white/15 backdrop-blur-sm rounded-lg p-3 border border-white/10">
+            <div className={`bg-white/15 backdrop-blur-sm rounded-lg p-3 border ${
+              isWinner ? 'border-yellow-400/30 bg-yellow-400/10' : 'border-white/10'
+            }`}>
               <div className="text-2xl font-bold text-yellow-300">{victoryData.multiplier}x</div>
               <div className="text-xs opacity-75">Multiplier</div>
             </div>
-            <div className="bg-white/15 backdrop-blur-sm rounded-lg p-3 border border-white/10">
-              <div className="text-2xl font-bold text-green-400">
+            <div className={`bg-white/15 backdrop-blur-sm rounded-lg p-3 border ${
+              isWinner ? 'border-green-400/30 bg-green-400/10' : 'border-red-400/30 bg-red-400/10'
+            }`}>
+              <div className={`text-2xl font-bold ${
+                isWinner ? 'text-green-400' : 'text-red-400'
+              }`}>
                 {isWinner ? `+${victoryData.pointsEarned}` : '0'}
               </div>
               <div className="text-xs opacity-75">Points Earned</div>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-bold text-base transition-all duration-200 shadow-lg"
-          >
-            Continue
-          </button>
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <button
+              onClick={handleCopyAsImage}
+              disabled={isCopying}
+              className="w-full py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 disabled:from-gray-700 disabled:to-gray-800 text-white rounded-lg font-semibold text-sm transition-all duration-200 shadow-lg flex items-center justify-center gap-2"
+            >
+              <Copy className="w-4 h-4" />
+              {isCopying ? 'Copying...' : 'Copy as Image'}
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-bold text-base transition-all duration-200 shadow-lg"
+            >
+              Continue
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>
