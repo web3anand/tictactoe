@@ -2694,7 +2694,7 @@ const copyVictoryCardAsImage = async (cardId: string) => {
             }
             
             // Method 2: Mobile-friendly approach - create a shareable link
-            if (!success && isMobile && blob) {
+            if (!success && isMobile) {
               try {
                 // Check if Web Share API is available (mobile browsers)
                 if (navigator.share) {
@@ -2726,7 +2726,7 @@ const copyVictoryCardAsImage = async (cardId: string) => {
             }
             
             // Method 3: Final fallback - download
-            if (!success && blob) {
+            if (!success) {
               try {
                 const url = URL.createObjectURL(blob)
                 const a = document.createElement('a')
@@ -2768,7 +2768,10 @@ const copyVictoryCardAsImage = async (cardId: string) => {
       
       return new Promise<boolean>((resolve) => {
         canvas.toBlob(async (blob: Blob | null) => {
-          if (!blob) resolve(false)
+          if (!blob) {
+            resolve(false)
+            return
+          }
           
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
           
