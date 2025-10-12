@@ -2366,14 +2366,15 @@ export default function Home() {
 
           {/* Game Board - 6x6 */}
           <div className="mb-4 flex justify-center">
-            <div 
+            <div
               className="grid mx-auto bg-black/20 p-2 rounded-xl border border-white/30"
               style={{
                 gridTemplateColumns: 'repeat(6, 1fr)',
                 gridTemplateRows: 'repeat(6, 1fr)',
                 gap: '4px',
                 width: '380px',
-                height: '380px'
+                height: '380px',
+                touchAction: 'manipulation'
               }}
             >
               {game.board.map((cell, index) => (
@@ -2381,6 +2382,13 @@ export default function Home() {
                   key={index}
                   data-position={index}
                   onClick={() => makeMove(index)}
+                  onTouchStart={(e) => {
+                    e.preventDefault()
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault()
+                    makeMove(index)
+                  }}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2) || 
                     // Turn enforcement: disable if it's not the current player's turn
                     (!isBotGame && player && (
@@ -2389,11 +2397,17 @@ export default function Home() {
                     ))
                   }
                   className={getMobileOptimizedClasses(
-                    `relative bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/20 ${
+                    `relative bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg flex items-center justify-center text-2xl font-semibold transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed aspect-square hover:bg-white/20 touch-manipulation select-none ${
                       cell ? 'pixel-reveal pixel-grid-effect' : ''
                     }`,
                     "bg-white/15"
                   )}
+                  style={{
+                    minHeight: '50px',
+                    minWidth: '50px',
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent'
+                  }}
                   whileTap={{ 
                     scale: 0.98,
                     transition: { duration: 0.05 }
@@ -2589,6 +2603,9 @@ const copyVictoryCardAsImage = async (cardId: string) => {
       return false
     }
 
+    // Check if we're on mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
     // Create a canvas to draw the element
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -2597,56 +2614,199 @@ const copyVictoryCardAsImage = async (cardId: string) => {
       return false
     }
 
-    // Get element dimensions
-    const rect = element.getBoundingClientRect()
-    canvas.width = rect.width * 2 // Higher resolution
-    canvas.height = rect.height * 2
-    ctx.scale(2, 2)
-
-    // Get computed styles and create a simple representation
-    const bgColor = window.getComputedStyle(element).backgroundColor
-    ctx.fillStyle = bgColor || '#000000'
-    ctx.fillRect(0, 0, rect.width, rect.height)
-
-    // Add text content (simplified approach)
-    ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 24px sans-serif'
-    ctx.textAlign = 'center'
+    // Set canvas size
+    canvas.width = 400
+    canvas.height = 500
     
-    const isWinner = element.querySelector('[data-result="winner"]')
-    const title = isWinner ? 'CONGRATULATIONS!' : 'YOU LOST 💔'
-    ctx.fillText(title, rect.width / 2, 50)
+    // Get the background image from the element
+    const bgImage = window.getComputedStyle(element).backgroundImage
+    const imageUrl = bgImage.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
+    
+    if (imageUrl) {
+      // Load and draw the background image
+      const img = document.createElement('img')
+      img.crossOrigin = 'anonymous'
+      
+      return new Promise<boolean>((resolve) => {
+        img.onload = async () => {
+          // Draw background image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+          
+          // Add overlay gradient
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
+          gradient.addColorStop(0, 'rgba(0,0,0,0)')
+          gradient.addColorStop(0.6, 'rgba(0,0,0,0.5)')
+          gradient.addColorStop(1, 'rgba(0,0,0,0.9)')
+          ctx.fillStyle = gradient
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // Convert to blob and copy to clipboard
-    return new Promise<boolean>((resolve) => {
-      canvas.toBlob(async (blob: Blob | null) => {
-        if (!blob) {
-          console.error('Failed to create image blob')
+          // Add border
+          ctx.strokeStyle = '#fbbf24'
+          ctx.lineWidth = 4
+          ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20)
+
+          // Add title
+          ctx.fillStyle = '#fbbf24'
+          ctx.font = 'bold 32px Arial'
+          ctx.textAlign = 'center'
+          ctx.shadowColor = 'rgba(0,0,0,0.8)'
+          ctx.shadowBlur = 10
+          
+          const titleText = element.querySelector('h1')?.textContent || 'GAME COMPLETE'
+          ctx.fillText(titleText, canvas.width / 2, 80)
+          
+          // Add subtitle
+          ctx.fillStyle = '#ffffff'
+          ctx.font = '16px Arial'
+          ctx.shadowBlur = 5
+          const subtitleText = element.querySelector('p')?.textContent || 'Thanks for playing!'
+          ctx.fillText(subtitleText, canvas.width / 2, 120)
+          
+          // Add game info
+          ctx.fillStyle = '#e5e7eb'
+          ctx.font = '14px Arial'
+          ctx.fillText('Tic Tac Toe Victory Card', canvas.width / 2, canvas.height - 30)
+
+          // Convert to blob and try clipboard
+          canvas.toBlob(async (blob: Blob | null) => {
+            if (!blob) {
+              console.error('Failed to create image blob')
+              resolve(false)
+              return
+            }
+
+            // Try different clipboard methods based on browser support
+            let success = false
+            
+            // Method 1: Modern Clipboard API (works on desktop and some mobile browsers)
+            if (navigator.clipboard && window.ClipboardItem && !isMobile) {
+              try {
+                await navigator.clipboard.write([
+                  new ClipboardItem({
+                    'image/png': blob
+                  })
+                ])
+                console.log('Victory card copied to clipboard!')
+                success = true
+              } catch (error) {
+                console.log('Modern clipboard API failed, trying fallback...', error)
+              }
+            }
+            
+            // Method 2: Mobile-friendly approach - create a shareable link
+            if (!success && isMobile && blob) {
+              try {
+                // Check if Web Share API is available (mobile browsers)
+                if (navigator.share) {
+                  const file = new File([blob], 'victory-card.png', { type: 'image/png' })
+                  await navigator.share({
+                    title: 'Tic Tac Toe Victory Card',
+                    text: 'Check out my victory!',
+                    files: [file]
+                  })
+                  success = true
+                  console.log('Victory card shared successfully!')
+                } else {
+                  // Fallback: download for mobile
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'victory-card.png'
+                  a.style.display = 'none'
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                  success = true
+                  console.log('Victory card downloaded!')
+                }
+              } catch (error) {
+                console.log('Mobile share failed, downloading...', error)
+              }
+            }
+            
+            // Method 3: Final fallback - download
+            if (!success && blob) {
+              try {
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'victory-card.png'
+                a.style.display = 'none'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+                success = true
+                console.log('Victory card downloaded as fallback!')
+              } catch (error) {
+                console.error('All methods failed:', error)
+              }
+            }
+            
+            resolve(success)
+          }, 'image/png', 1.0)
+        }
+        
+        img.onerror = () => {
+          console.error('Failed to load background image')
           resolve(false)
-          return
         }
-
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              'image/png': blob
-            })
-          ])
-          console.log('Victory card copied to clipboard!')
-          resolve(true)
-        } catch (error) {
-          console.error('Failed to copy to clipboard:', error)
-          // Fallback: download the image
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = 'victory-card.png'
-          a.click()
-          URL.revokeObjectURL(url)
-          resolve(true)
-        }
-      }, 'image/png', 1.0)
-    })
+        
+        img.src = imageUrl
+      })
+    } else {
+      // Fallback without background image
+      ctx.fillStyle = '#1f2937'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      
+      const titleText = element.querySelector('h1')?.textContent || 'GAME COMPLETE'
+      ctx.fillStyle = '#fbbf24'
+      ctx.font = 'bold 32px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText(titleText, canvas.width / 2, 80)
+      
+      return new Promise<boolean>((resolve) => {
+        canvas.toBlob(async (blob: Blob | null) => {
+          if (!blob) resolve(false)
+          
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+          
+          if (isMobile && navigator.share) {
+            try {
+              const file = new File([blob], 'victory-card.png', { type: 'image/png' })
+              await navigator.share({
+                title: 'Tic Tac Toe Victory Card',
+                files: [file]
+              })
+              resolve(true)
+              return
+            } catch (error) {
+              console.log('Share failed, downloading...', error)
+            }
+          }
+          
+          try {
+            if (navigator.clipboard && window.ClipboardItem && !isMobile) {
+              await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+              ])
+            } else {
+              throw new Error('Clipboard not available, downloading')
+            }
+            resolve(true)
+          } catch (error) {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = 'victory-card.png'
+            a.click()
+            URL.revokeObjectURL(url)
+            resolve(true)
+          }
+        }, 'image/png', 1.0)
+      })
+    }
   } catch (error) {
     console.error('Error capturing victory card:', error)
     return false
@@ -2680,10 +2840,13 @@ function VictoryPopup({
     try {
       const success = await copyVictoryCardAsImage('victory-popup')
       if (success) {
-        console.log('Victory card copied successfully!')
+        console.log('Victory card copied/shared successfully!')
+        // Show success feedback (could add a toast here)
+      } else {
+        console.log('Failed to copy/share victory card')
       }
     } catch (error) {
-      console.error('Failed to copy victory card:', error)
+      console.error('Failed to copy/share victory card:', error)
     } finally {
       setIsCopying(false)
     }
@@ -2779,25 +2942,6 @@ function VictoryPopup({
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3 mb-5 text-center">
-            <div className={`bg-white/15 backdrop-blur-sm rounded-lg p-3 border ${
-              isWinner ? 'border-yellow-400/30 bg-yellow-400/10' : 'border-white/10'
-            }`}>
-              <div className="text-2xl font-bold text-yellow-300">{victoryData.multiplier}x</div>
-              <div className="text-xs opacity-75">Multiplier</div>
-            </div>
-            <div className={`bg-white/15 backdrop-blur-sm rounded-lg p-3 border ${
-              isWinner ? 'border-green-400/30 bg-green-400/10' : 'border-red-400/30 bg-red-400/10'
-            }`}>
-              <div className={`text-2xl font-bold ${
-                isWinner ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {isWinner ? `+${victoryData.pointsEarned}` : '0'}
-              </div>
-              <div className="text-xs opacity-75">Points Earned</div>
-            </div>
-          </div>
-
           {/* Action Buttons */}
           <div className="space-y-2">
             <button
@@ -2806,7 +2950,11 @@ function VictoryPopup({
               className="w-full py-2 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 disabled:from-gray-700 disabled:to-gray-800 text-white rounded-lg font-semibold text-sm transition-all duration-200 shadow-lg flex items-center justify-center gap-2"
             >
               <Copy className="w-4 h-4" />
-              {isCopying ? 'Copying...' : 'Copy as Image'}
+              {isCopying ? 'Processing...' : (
+                typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                  ? 'Share Image' 
+                  : 'Copy as Image'
+              )}
             </button>
             
             <button
