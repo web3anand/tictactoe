@@ -108,7 +108,7 @@ export const minikitConfig = {
   
   // WebSocket Configuration for Real-time Features
   realtime: {
-    socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
+    socketUrl: process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3000",
     namespace: "/game",
     events: {
       gameUpdate: "game:update",

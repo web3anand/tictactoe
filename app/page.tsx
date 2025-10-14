@@ -1415,19 +1415,30 @@ export default function Home() {
     }
   }, [game?.currentPlayer, game?.gameOver, gameMode])
 
+  // Debounce state for preventing rapid repeated moves
+  const [lastMoveTime, setLastMoveTime] = useState<number>(0)
+  const MOVE_DEBOUNCE_MS = 300 // 300ms debounce
+
   // Mobile-optimized move handler
   const handleCellInteraction = (position: number) => {
-    console.log('🎮 Cell interaction attempted at position:', position)
+    // Debounce rapid repeated events
+    const now = Date.now()
+    if (now - lastMoveTime < MOVE_DEBOUNCE_MS) {
+      console.log('⏱️ Move debounced (too rapid)')
+      return
+    }
     
     // Check if the cell is already occupied or game is over
     if (!game || game.board[position] || game.gameOver) {
-      console.log('❌ Move blocked: cell occupied or game over')
+      console.log('🛑 Cell', position, 'blocked:', 
+        game?.board[position] ? 'occupied' : 'no game',
+        game?.gameOver ? 'game over' : '')
       return
     }
     
     // Check if it's the player's turn
     if (!isBotGame && !game.player2) {
-      console.log('❌ Move blocked: waiting for player 2')
+      console.log('⏳ Waiting for player 2')
       return
     }
     
@@ -1436,11 +1447,13 @@ export default function Home() {
       (player.id === game.player1.id && game.currentPlayer !== 'X') || 
       (game.player2 && player.id === game.player2.id && game.currentPlayer !== 'O')
     )) {
-      console.log('❌ Move blocked: not your turn')
+      console.log('⏰ Not your turn (current:', game.currentPlayer + ')')
       return
     }
     
-    console.log('✅ Making move at position:', position)
+    console.log('✅ Move at', position, 'by', game.currentPlayer)
+    // Set debounce time
+    setLastMoveTime(now)
     // Make the move
     makeMove(position)
   }
@@ -2436,34 +2449,20 @@ export default function Home() {
                 msUserSelect: 'none',
                 pointerEvents: 'auto'
               }}
-              onTouchStart={(e) => {
-                console.log('🎯 Grid container touch start')
-                e.stopPropagation()
-              }}
+
             >
               {game.board.map((cell, index) => (
                 <motion.button
                   key={index}
                   data-position={index}
-                  onClick={(e) => {
-                    console.log('🖱️ Click event on cell', index)
-                    e.preventDefault()
+                  onPointerDown={(e) => {
+                    // Don't call preventDefault() to avoid passive listener errors
                     e.stopPropagation()
-                    handleCellInteraction(index)
-                  }}
-                  onTouchStart={(e) => {
-                    console.log('👆 Touch start on cell', index)
-                    e.preventDefault()
-                    e.stopPropagation()
-                    // Use setTimeout to ensure state is ready
-                    setTimeout(() => {
+                    // Only handle primary pointer (avoid multi-touch issues)
+                    if (e.isPrimary) {
+                      console.log('🎯 Cell', index, 'touched (', e.pointerType, ')')
                       handleCellInteraction(index)
-                    }, 10)
-                  }}
-                  onTouchEnd={(e) => {
-                    console.log('👆 Touch end on cell', index)
-                    e.preventDefault()
-                    e.stopPropagation()
+                    }
                   }}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2) || 
                     // Turn enforcement: disable if it's not the current player's turn
@@ -2483,18 +2482,15 @@ export default function Home() {
                     minWidth: '58px',
                     height: '58px',
                     width: '58px',
-                    touchAction: 'manipulation',
+                    touchAction: 'none',
                     WebkitTapHighlightColor: 'transparent',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
                     msUserSelect: 'none',
                     cursor: 'pointer',
                     border: '2px solid transparent',
-                    fontSize: '24px'
-                  }}
-                  whileTap={{ 
-                    scale: 0.98,
-                    transition: { duration: 0.05 }
+                    fontSize: '24px',
+                    pointerEvents: 'auto'
                   }}
                 >
                   {cell === 'X' && (

@@ -59,7 +59,7 @@ export function useGameSocket(): UseGameSocketReturn {
   const eventHandlersRef = useRef<Partial<GameSocketEvents>>({})
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000'
     
     console.log('🔌 Connecting to Socket.IO server:', socketUrl)
     
