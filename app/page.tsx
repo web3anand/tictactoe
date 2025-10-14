@@ -145,6 +145,32 @@ export default function Home() {
     isDraw: boolean
   } | null>(null)
 
+  // Mobile touch optimization
+  useEffect(() => {
+    // Disable zoom on double tap for mobile devices
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault()
+      }
+    }
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      const now = Date.now()
+      if (now - (window as any).lastTouchEnd <= 300) {
+        e.preventDefault()
+      }
+      ;(window as any).lastTouchEnd = now
+    }
+    
+    document.addEventListener('touchstart', handleTouchStart, { passive: false })
+    document.addEventListener('touchend', handleTouchEnd, { passive: false })
+    
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [])
+
   // Helper function to randomly determine starting player
   const getRandomStartingPlayer = (): 'X' | 'O' => {
     return Math.random() < 0.5 ? 'X' : 'O'
@@ -1391,18 +1417,30 @@ export default function Home() {
 
   // Mobile-optimized move handler
   const handleCellInteraction = (position: number) => {
+    console.log('🎮 Cell interaction attempted at position:', position)
+    
     // Check if the cell is already occupied or game is over
-    if (!game || game.board[position] || game.gameOver) return
+    if (!game || game.board[position] || game.gameOver) {
+      console.log('❌ Move blocked: cell occupied or game over')
+      return
+    }
     
     // Check if it's the player's turn
-    if (!isBotGame && !game.player2) return
+    if (!isBotGame && !game.player2) {
+      console.log('❌ Move blocked: waiting for player 2')
+      return
+    }
     
     // Turn enforcement for multiplayer
     if (!isBotGame && player && (
       (player.id === game.player1.id && game.currentPlayer !== 'X') || 
       (game.player2 && player.id === game.player2.id && game.currentPlayer !== 'O')
-    )) return
+    )) {
+      console.log('❌ Move blocked: not your turn')
+      return
+    }
     
+    console.log('✅ Making move at position:', position)
     // Make the move
     makeMove(position)
   }
@@ -2395,7 +2433,12 @@ export default function Home() {
                 touchAction: 'manipulation',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
-                msUserSelect: 'none'
+                msUserSelect: 'none',
+                pointerEvents: 'auto'
+              }}
+              onTouchStart={(e) => {
+                console.log('🎯 Grid container touch start')
+                e.stopPropagation()
               }}
             >
               {game.board.map((cell, index) => (
@@ -2403,28 +2446,24 @@ export default function Home() {
                   key={index}
                   data-position={index}
                   onClick={(e) => {
+                    console.log('🖱️ Click event on cell', index)
                     e.preventDefault()
                     e.stopPropagation()
                     handleCellInteraction(index)
                   }}
                   onTouchStart={(e) => {
-                    // Don't prevent default on touch start - let browser handle it
-                    e.stopPropagation()
-                  }}
-                  onTouchEnd={(e) => {
+                    console.log('👆 Touch start on cell', index)
                     e.preventDefault()
                     e.stopPropagation()
-                    // Only handle touch end if no dragging occurred
-                    const touch = e.changedTouches[0]
-                    const element = e.currentTarget
-                    const rect = element.getBoundingClientRect()
-                    const isInsideElement = touch.clientX >= rect.left && 
-                                          touch.clientX <= rect.right && 
-                                          touch.clientY >= rect.top && 
-                                          touch.clientY <= rect.bottom
-                    if (isInsideElement) {
+                    // Use setTimeout to ensure state is ready
+                    setTimeout(() => {
                       handleCellInteraction(index)
-                    }
+                    }, 10)
+                  }}
+                  onTouchEnd={(e) => {
+                    console.log('👆 Touch end on cell', index)
+                    e.preventDefault()
+                    e.stopPropagation()
                   }}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2) || 
                     // Turn enforcement: disable if it's not the current player's turn
@@ -2440,14 +2479,18 @@ export default function Home() {
                     "bg-white/15"
                   )}
                   style={{
-                    minHeight: '50px',
-                    minWidth: '50px',
+                    minHeight: '58px',
+                    minWidth: '58px',
+                    height: '58px',
+                    width: '58px',
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent',
                     userSelect: 'none',
                     WebkitUserSelect: 'none',
                     msUserSelect: 'none',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    border: '2px solid transparent',
+                    fontSize: '24px'
                   }}
                   whileTap={{ 
                     scale: 0.98,
