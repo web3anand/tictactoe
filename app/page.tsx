@@ -1389,6 +1389,24 @@ export default function Home() {
     }
   }, [game?.currentPlayer, game?.gameOver, gameMode])
 
+  // Mobile-optimized move handler
+  const handleCellInteraction = (position: number) => {
+    // Check if the cell is already occupied or game is over
+    if (!game || game.board[position] || game.gameOver) return
+    
+    // Check if it's the player's turn
+    if (!isBotGame && !game.player2) return
+    
+    // Turn enforcement for multiplayer
+    if (!isBotGame && player && (
+      (player.id === game.player1.id && game.currentPlayer !== 'X') || 
+      (game.player2 && player.id === game.player2.id && game.currentPlayer !== 'O')
+    )) return
+    
+    // Make the move
+    makeMove(position)
+  }
+
   const makeMove = async (position: number, isBotMove: boolean = false) => {
     if (!game || !player) return
 
@@ -2367,27 +2385,46 @@ export default function Home() {
           {/* Game Board - 6x6 */}
           <div className="mb-4 flex justify-center">
             <div
-              className="grid mx-auto bg-black/20 p-2 rounded-xl border border-white/30"
+              className="grid mx-auto bg-black/20 p-2 rounded-xl border border-white/30 select-none"
               style={{
                 gridTemplateColumns: 'repeat(6, 1fr)',
                 gridTemplateRows: 'repeat(6, 1fr)',
                 gap: '4px',
                 width: '380px',
                 height: '380px',
-                touchAction: 'manipulation'
+                touchAction: 'manipulation',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                msUserSelect: 'none'
               }}
             >
               {game.board.map((cell, index) => (
                 <motion.button
                   key={index}
                   data-position={index}
-                  onClick={() => makeMove(index)}
-                  onTouchStart={(e) => {
+                  onClick={(e) => {
                     e.preventDefault()
+                    e.stopPropagation()
+                    handleCellInteraction(index)
+                  }}
+                  onTouchStart={(e) => {
+                    // Don't prevent default on touch start - let browser handle it
+                    e.stopPropagation()
                   }}
                   onTouchEnd={(e) => {
                     e.preventDefault()
-                    makeMove(index)
+                    e.stopPropagation()
+                    // Only handle touch end if no dragging occurred
+                    const touch = e.changedTouches[0]
+                    const element = e.currentTarget
+                    const rect = element.getBoundingClientRect()
+                    const isInsideElement = touch.clientX >= rect.left && 
+                                          touch.clientX <= rect.right && 
+                                          touch.clientY >= rect.top && 
+                                          touch.clientY <= rect.bottom
+                    if (isInsideElement) {
+                      handleCellInteraction(index)
+                    }
                   }}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2) || 
                     // Turn enforcement: disable if it's not the current player's turn
@@ -2406,7 +2443,11 @@ export default function Home() {
                     minHeight: '50px',
                     minWidth: '50px',
                     touchAction: 'manipulation',
-                    WebkitTapHighlightColor: 'transparent'
+                    WebkitTapHighlightColor: 'transparent',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    msUserSelect: 'none',
+                    cursor: 'pointer'
                   }}
                   whileTap={{ 
                     scale: 0.98,
