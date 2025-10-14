@@ -1,11 +1,22 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
   "installCommand": "npm install",
   "outputDirectory": ".next",
   "functions": {
     "app/api/webhook/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/games/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/games/[gameId]/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/games/[gameId]/moves/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/leaderboard/route.ts": {
       "maxDuration": 10
     }
   },
@@ -22,6 +33,12 @@
           "value": "*"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/socket.io/(.*)",
+      "destination": "/api/socket"
     }
   ]
 }

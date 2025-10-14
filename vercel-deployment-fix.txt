@@ -1,0 +1,31 @@
+# COMPLETE VERCEL ENVIRONMENT VARIABLES FOR DEPLOYMENT SUCCESS
+# Copy ALL these variables to your Vercel dashboard -> Settings -> Environment Variables
+
+# === CORE NEXT.JS CONFIGURATION ===
+NODE_ENV=production
+NEXT_PUBLIC_ROOT_URL=https://basetok.fun
+
+# === PRIVY AUTHENTICATION ===
+NEXT_PUBLIC_PRIVY_APP_ID=cmgakt9wj0005l20b5epdxws8
+
+# === SUPABASE DATABASE ===
+NEXT_PUBLIC_SUPABASE_URL=https://njpgolqorjiilzaswtql.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qcGdvbHFvcmppaWx6YXN3dHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1NTk1ODMsImV4cCI6MjA3NTEzNTU4M30.WQBpNQhVKct5w1kEnSNLxnrKXlE_0LdYGPfvagkg_jM
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qcGdvbHFvcmppaWx6YXN3dHFsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTU1OTU4MywiZXhwIjoyMDc1MTM1NTgzfQ.gke_RChT3Y0QgpBTDaKlR5usPhRGeqIzB2NudXW3O-U
+
+# === BLOCKCHAIN CONFIGURATION ===
+NEXT_PUBLIC_CHAIN_ID=8453
+NEXT_PUBLIC_RPC_URL=https://mainnet.base.org
+
+# === SOCKET.IO CONFIGURATION ===
+NEXT_PUBLIC_SOCKET_URL=https://basetok.fun
+
+# === BUILD CONFIGURATION ===
+SKIP_ENV_VALIDATION=true
+
+# DEPLOYMENT CHECKLIST:
+# 1. Add ALL variables above to Vercel -> Settings -> Environment Variables
+# 2. Set environment to "Production, Preview, and Development"
+# 3. Save and redeploy
+# 4. Check build logs for any remaining errors
+# 5. Verify all API routes work after deployment
