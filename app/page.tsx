@@ -216,26 +216,31 @@ export default function Home() {
   // Initialize app and reset leaderboard
   useEffect(() => {
     const initializeApp = async () => {
+      // Only reset leaderboard in development mode or when specifically requested
+      const shouldResetLeaderboard = process.env.NODE_ENV === 'development' && 
+        new URLSearchParams(window.location.search).has('reset')
+      
       try {
-        // Reset leaderboard as requested
-        console.log('🔄 Resetting leaderboard on app start...')
-        const response = await fetch('/api/leaderboard/reset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('✅ Leaderboard reset successfully:', data.message)
+        if (shouldResetLeaderboard) {
+          console.log('🔄 Resetting leaderboard (development mode with ?reset parameter)...')
+          const response = await fetch('/api/leaderboard/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
           
-          // Clear player data but preserve username data for smooth re-authentication
-          localStorage.removeItem('tictactoe-player')
-          localStorage.removeItem('tictactoe-all-players')
-          
-          // Clear current player state
-          setPlayer(null)
-        } else {
-          console.error('❌ Failed to reset leaderboard')
+          if (response.ok) {
+            const data = await response.json()
+            console.log('✅ Leaderboard reset successfully:', data.message)
+            
+            // Clear player data but preserve username data for smooth re-authentication
+            localStorage.removeItem('tictactoe-player')
+            localStorage.removeItem('tictactoe-all-players')
+            
+            // Clear current player state
+            setPlayer(null)
+          } else {
+            console.error('❌ Failed to reset leaderboard')
+          }
         }
       } catch (error) {
         console.error('❌ Error resetting leaderboard:', error)
@@ -245,6 +250,18 @@ export default function Home() {
       updateLeaderboard()
       // Initialize bots in leaderboard
       initializeBotsInLeaderboard()
+      
+      // Restore player state from localStorage if it exists
+      try {
+        const savedPlayer = localStorage.getItem('tictactoe-player')
+        if (savedPlayer && !shouldResetLeaderboard) {
+          const parsedPlayer = JSON.parse(savedPlayer)
+          console.log('🔄 Restoring player from localStorage:', parsedPlayer.name)
+          setPlayer(parsedPlayer)
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not restore player from localStorage:', error)
+      }
     }
     
     initializeApp()
@@ -322,23 +339,67 @@ export default function Home() {
             )
             
             if (existingPlayer) {
-              // Use existing player data
+              // Check localStorage for potentially higher points
+              let localPlayerData = null
+              try {
+                const savedPlayer = localStorage.getItem('tictactoe-player')
+                console.log('🔍 DEBUG: Raw localStorage data:', savedPlayer)
+                if (savedPlayer) {
+                  const parsedPlayer = JSON.parse(savedPlayer)
+                  console.log('🔍 DEBUG: Parsed localStorage player:', parsedPlayer)
+                  if (parsedPlayer.walletAddress === walletAddr) {
+                    localPlayerData = parsedPlayer
+                  }
+                }
+              } catch (error) {
+                console.warn('Could not parse localStorage player data:', error)
+              }
+
+              // Use the higher points value between database and localStorage
+              const dbPoints = existingPlayer.total_points || 0
+              const localPoints = localPlayerData?.points || 0
+              const finalPoints = Math.max(dbPoints, localPoints)
+              
+              console.log('🔍 DEBUG: Points comparison:', {
+                dbPoints,
+                localPoints,
+                finalPoints,
+                dbPlayer: existingPlayer,
+                localPlayer: localPlayerData
+              })
+              
+              // Also preserve other local stats if they're higher
+              const finalGamesPlayed = Math.max(existingPlayer.games_played || 0, localPlayerData?.gamesPlayed || 0)
+              const finalGamesWon = Math.max(existingPlayer.games_won || 0, localPlayerData?.gamesWon || 0)
+
               const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
               newPlayer = {
                 id: existingPlayer.id,
                 name: existingPlayer.display_name || existingPlayer.username || name,
-                points: existingPlayer.total_points || 0,
-                gamesPlayed: existingPlayer.games_played || 0,
-                gamesWon: existingPlayer.games_won || 0,
+                points: finalPoints,
+                gamesPlayed: finalGamesPlayed,
+                gamesWon: finalGamesWon,
                 walletAddress: walletAddr,
                 walletAvatar,
                 privyUserId: privyData?.id,
                 privyProfile: privyData || null
               }
-              setPlayer(newPlayer)
-              localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
-              updateLeaderboard()
-              console.log('✅ Existing player loaded from database:', newPlayer)
+              
+              // If local data was higher, update the database with the correct values
+              if (localPoints > dbPoints || finalGamesPlayed > (existingPlayer.games_played || 0) || finalGamesWon > (existingPlayer.games_won || 0)) {
+                console.log('🔄 Local data has higher values, syncing to database:', {
+                  localPoints,
+                  dbPoints,
+                  finalPoints
+                })
+                updatePlayerData(newPlayer)
+              } else {
+                setPlayer(newPlayer)
+                localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
+                updateLeaderboard()
+              }
+              
+              console.log('✅ Existing player loaded from database with local sync:', newPlayer)
               return
             }
           }
@@ -695,6 +756,25 @@ export default function Home() {
   // Update player data and persist it
   const updatePlayerData = async (updatedPlayer: Player) => {
     console.log('💾 Updating player data:', updatedPlayer)
+    console.log('🔍 DEBUG: Current points being sent:', updatedPlayer.points)
+    
+    // Safeguard: Check localStorage for existing points to prevent data loss
+    try {
+      const savedPlayer = localStorage.getItem('tictactoe-player')
+      if (savedPlayer) {
+        const parsedPlayer = JSON.parse(savedPlayer)
+        if (parsedPlayer.walletAddress === updatedPlayer.walletAddress && parsedPlayer.points > updatedPlayer.points) {
+          console.log('⚠️  WARNING: Preventing points loss!', {
+            savedPoints: parsedPlayer.points,
+            newPoints: updatedPlayer.points,
+            using: parsedPlayer.points
+          })
+          updatedPlayer.points = parsedPlayer.points
+        }
+      }
+    } catch (error) {
+      console.warn('Could not check localStorage for points safeguard:', error)
+    }
     
     // Update state first
     setPlayer(updatedPlayer)
@@ -1808,12 +1888,26 @@ export default function Home() {
             const botPointsEarned = isBotWinner ? Math.floor(100 * botMultiplier) : 0
             
             // Update player stats for bot win
+            console.log('🎮 DEBUG: Bot game ended, player object before update:', player)
+            
+            // Ensure player points are never lost during updates
+            const currentPoints = Math.max(player?.points || 0, 0)
+            const preservedPoints = isPlayerWinner ? currentPoints + pointsEarned : currentPoints
+            
             const updatedPlayer = {
               ...player,
-              points: isPlayerWinner ? player.points + pointsEarned : player.points,
+              points: preservedPoints,
               gamesPlayed: player.gamesPlayed + 1,
               gamesWon: isPlayerWinner ? player.gamesWon + 1 : player.gamesWon
             }
+            console.log('🎮 DEBUG: Updated player object:', updatedPlayer)
+            console.log('🎮 DEBUG: Points calculation:', {
+              originalPoints: player?.points,
+              currentPoints,
+              pointsEarned,
+              isPlayerWinner,
+              finalPoints: preservedPoints
+            })
             updatePlayerData(updatedPlayer)
             
             // Update bot stats in leaderboard
@@ -2727,7 +2821,16 @@ export default function Home() {
                 onClose={() => {
                   setShowVictoryPopup(false)
                   setVictoryData(null)
-                  // Remove auto-restart - let user choose when to play again
+                  // Auto-restart games after a short delay
+                  setTimeout(() => {
+                    if (isBotGame) {
+                      resetMultiplayerGame() // For bot games, cycle to next bot
+                    } else {
+                      // For real multiplayer games, go back to multiplayer menu
+                      setGame(null)
+                      setGameMode('multiplayer')
+                    }
+                  }, 1000)
                 }}
               />
             )}
