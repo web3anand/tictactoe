@@ -119,5 +119,13 @@ export const memoryDb = {
         ...user,
         rank: index + 1
       }))
+  },
+
+  // Reset all data
+  reset: () => {
+    users.length = 0
+    games.length = 0
+    moves.length = 0
+    console.log('🔄 Memory database reset completed')
   }
 }

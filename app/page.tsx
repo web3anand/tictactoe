@@ -213,16 +213,41 @@ export default function Home() {
     }, randomDelay)
   }
 
-  // Load player from localStorage
+  // Initialize app and reset leaderboard
   useEffect(() => {
-    const savedPlayer = localStorage.getItem('tictactoe-player')
-    if (savedPlayer) {
-      setPlayer(JSON.parse(savedPlayer))
+    const initializeApp = async () => {
+      try {
+        // Reset leaderboard as requested
+        console.log('🔄 Resetting leaderboard on app start...')
+        const response = await fetch('/api/leaderboard/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('✅ Leaderboard reset successfully:', data.message)
+          
+          // Clear player data but preserve username data for smooth re-authentication
+          localStorage.removeItem('tictactoe-player')
+          localStorage.removeItem('tictactoe-all-players')
+          
+          // Clear current player state
+          setPlayer(null)
+        } else {
+          console.error('❌ Failed to reset leaderboard')
+        }
+      } catch (error) {
+        console.error('❌ Error resetting leaderboard:', error)
+      }
+      
+      // Load leaderboard after reset
+      updateLeaderboard()
+      // Initialize bots in leaderboard
+      initializeBotsInLeaderboard()
     }
-    // Load leaderboard on component mount
-    updateLeaderboard()
-    // Initialize bots in leaderboard
-    initializeBotsInLeaderboard()
+    
+    initializeApp()
   }, [])
 
   // Reset logout flag when wallet connects
@@ -271,7 +296,17 @@ export default function Home() {
     setHasManuallyLoggedOut(false)
     
     let newPlayer: Player
-    const walletAddr = privyData?.wallet || address
+    const walletAddr = privyData?.walletAddress || privyData?.wallet || address
+    
+    // REQUIREMENT: All users must have a valid wallet address
+    if (!walletAddr) {
+      console.error('❌ Cannot create player without wallet address')
+      // Instead of setting an error, prompt user to connect wallet
+      setError('Please connect your wallet to continue playing.')
+      setShowUsernameSetup(false) // Hide username setup until wallet is connected
+      setIsPrivyAuthenticated(true) // Keep them authenticated but prompt for wallet
+      return
+    }
     
     // If wallet is connected, try to load/create from leaderboard API first
     if (walletAddr) {
@@ -348,47 +383,16 @@ export default function Home() {
           }
         }
       } catch (error) {
-        console.warn('⚠️  API player creation failed, using localStorage fallback:', error)
+        console.error('❌ API player creation failed and wallet address is required:', error)
+        setError('Failed to create player. Please ensure you have a valid wallet connected and try again.')
+        return
       }
     }
     
-    // Fallback to localStorage logic
-    const allSavedPlayers = JSON.parse(localStorage.getItem('tictactoe-all-players') || '{}')
-    const existingPlayer = allSavedPlayers[name]
-    
-    if (existingPlayer) {
-      // Restore existing player
-      const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
-      newPlayer = {
-        ...existingPlayer,
-        walletAvatar: walletAvatar || existingPlayer.walletAvatar,
-        privyUserId: privyData?.id || existingPlayer.privyUserId,
-        privyProfile: privyData || existingPlayer.privyProfile
-      }
-    } else {
-      // Create new player
-      const walletAvatar = walletAddr ? generatePixelArtAvatar(walletAddr, 128) : undefined
-      newPlayer = {
-        id: Math.random().toString(36).substring(2, 15),
-        name,
-        points: 0,
-        gamesPlayed: 0,
-        gamesWon: 0,
-        walletAddress: walletAddr,
-        walletAvatar,
-        privyUserId: privyData?.id,
-        privyProfile: privyData || null
-      }
-      // Save to all players
-      allSavedPlayers[name] = newPlayer
-      localStorage.setItem('tictactoe-all-players', JSON.stringify(allSavedPlayers))
-    }
-    
-    setPlayer(newPlayer)
-    localStorage.setItem('tictactoe-player', JSON.stringify(newPlayer))
-    
-    // Update leaderboard (call the function directly instead of reference)
-    // updateLeaderboard will be called later in useEffect
+    // REMOVED: No localStorage fallback - all players must be created via API with wallet address
+    console.error('❌ Player creation failed - no valid wallet address provided')
+    setError('A wallet address is required to play. Please connect your wallet first.')
+    return
   }, [address])
 
   // Handle Privy authentication - memoized to prevent infinite loops
@@ -405,7 +409,7 @@ export default function Home() {
     setPrivyUserData(userData)
     
     // Check if user has a saved username using multiple keys for reliability
-    const walletAddr = userData.wallet
+    const walletAddr = userData.walletAddress || userData.wallet
     const privyUserId = userData.id
     
     // Try multiple storage keys to find existing username
@@ -444,18 +448,36 @@ export default function Home() {
     }
     
     console.log('🔍 Username check:', { walletAddr, privyUserId, savedUsername })
+    console.log('🔍 Debug localStorage keys:', {
+      usernameDirect: walletAddr ? localStorage.getItem(`username-${walletAddr}`) : null,
+      usernameWallet: walletAddr ? localStorage.getItem(`username-wallet-${walletAddr}`) : null,
+      usernamePrivy: privyUserId ? localStorage.getItem(`username-privy-${privyUserId}`) : null,
+      existingPlayer: localStorage.getItem('tictactoe-player')
+    })
     
-    if (savedUsername) {
-      // Use saved username - no need to ask again
-      console.log('✅ Found existing username:', savedUsername)
+    // Clear any previous errors when wallet address is provided
+    if (walletAddr) {
+      setError('')
+    }
+    
+    // Check if savedUsername is a valid custom username (not defaults)
+    const isValidCustomUsername = savedUsername && 
+      savedUsername !== 'Player' && 
+      savedUsername !== 'Anonymous Player' && 
+      savedUsername.trim().length >= 4
+    
+    if (isValidCustomUsername && walletAddr) {
+      // Use saved username - no need to ask again (only if wallet is connected)
+      console.log('✅ Found existing valid username:', savedUsername)
       createPlayer(savedUsername, userData)
-    } else {
-      // Show username setup for new users only
-      console.log('🆕 New user - showing username setup')
+    } else if (walletAddr) {
+      // Show username setup for new users or users with default names
+      console.log('🆕 New user or default username - showing username setup')
       setShowUsernameSetup(true)
       setUsernameInput('')
       setUsernameError('')
     }
+    // If no wallet address, the createPlayer function will handle the error display
   }, [hasManuallyLoggedOut, createPlayer])
 
   const handlePrivyLogout = () => {
@@ -484,10 +506,15 @@ export default function Home() {
       return { isValid: false, error: 'Username must be 20 characters or less' }
     }
     
-    // Check for invalid characters
-    const validPattern = /^[a-zA-Z0-9_@.-]+$/
+    // Check for invalid characters - more strict validation
+    const validPattern = /^[a-zA-Z0-9_.-]+$/
     if (!validPattern.test(trimmed)) {
-      return { isValid: false, error: 'Username can only contain letters, numbers, _, @, ., and -' }
+      return { isValid: false, error: 'Username can only contain letters, numbers, _, ., and -' }
+    }
+    
+    // Ensure username doesn't start with special characters
+    if (!/^[a-zA-Z0-9]/.test(trimmed)) {
+      return { isValid: false, error: 'Username must start with a letter or number' }
     }
     
     return { isValid: true }
@@ -660,9 +687,9 @@ export default function Home() {
   }
 
   const handleGuestLogin = (name: string) => {
-    console.log('🎮 Guest login initiated for:', name)
-    setHasManuallyLoggedOut(false)
-    createPlayer(name)
+    console.log('🚫 Guest login disabled - wallet connection required')
+    setError('Guest mode is not available. Please connect your wallet to play.')
+    return
   }
 
   // Update player data and persist it
@@ -1415,16 +1442,38 @@ export default function Home() {
     }
   }, [game?.currentPlayer, game?.gameOver, gameMode])
 
-  // Debounce state for preventing rapid repeated moves
+  // Enhanced touch event protection
   const [lastMoveTime, setLastMoveTime] = useState<number>(0)
-  const MOVE_DEBOUNCE_MS = 300 // 300ms debounce
+  const [isProcessingMove, setIsProcessingMove] = useState<boolean>(false)
+  const [lastMovePosition, setLastMovePosition] = useState<number>(-1)
+  const [touchLockTimeout, setTouchLockTimeout] = useState<NodeJS.Timeout | null>(null)
+  const MOVE_DEBOUNCE_MS = 800 // Increased to 800ms for more aggressive protection
+  const moveInProgressRef = useRef<boolean>(false)
 
-  // Mobile-optimized move handler
+  // Enhanced mobile-optimized move handler with aggressive protection
   const handleCellInteraction = (position: number) => {
-    // Debounce rapid repeated events
+    // Use ref for immediate check (more reliable than state)
+    if (moveInProgressRef.current) {
+      console.log('🔄 Move BLOCKED - ref indicates move in progress')
+      return
+    }
+
+    // Check if already processing any move (state-based check)
+    if (isProcessingMove) {
+      console.log('🔄 Move processing blocked - already handling a move')
+      return
+    }
+
+    // Debounce rapid repeated events (increased to 800ms)
     const now = Date.now()
     if (now - lastMoveTime < MOVE_DEBOUNCE_MS) {
-      console.log('⏱️ Move debounced (too rapid)')
+      console.log('⏱️ Move debounced (too rapid - 800ms protection)')
+      return
+    }
+
+    // Check if this is the same position as the last move (2 second protection)
+    if (position === lastMovePosition && now - lastMoveTime < 2000) {
+      console.log('🚫 Same position blocked - 2s duplicate protection')
       return
     }
     
@@ -1442,8 +1491,20 @@ export default function Home() {
       return
     }
     
-    // Turn enforcement for multiplayer
-    if (!isBotGame && player && (
+    // Check if there's a bot in the game
+    const hasBot = (game.player1.id.startsWith('bot_')) || (game.player2?.id.startsWith('bot_'))
+    
+    // For games with bots, block moves only when it's actually the bot's turn
+    if (hasBot) {
+      const isBotTurn = (game.currentPlayer === 'X' && game.player1.id.startsWith('bot_')) ||
+                        (game.currentPlayer === 'O' && game.player2?.id.startsWith('bot_'))
+      if (isBotTurn) {
+        console.log('🤖 Bot is thinking... please wait')
+        return
+      }
+    }
+    // For pure multiplayer games, enforce strict turn-based play
+    else if (!hasBot && player && (
       (player.id === game.player1.id && game.currentPlayer !== 'X') || 
       (game.player2 && player.id === game.player2.id && game.currentPlayer !== 'O')
     )) {
@@ -1451,22 +1512,83 @@ export default function Home() {
       return
     }
     
-    console.log('✅ Move at', position, 'by', game.currentPlayer)
-    // Set debounce time
+    console.log('✅ Move INITIATED at', position, 'by', game.currentPlayer)
+    
+    // Set IMMEDIATE ref-based protection (most reliable)
+    moveInProgressRef.current = true
+    
+    // Set all protection states
+    setIsProcessingMove(true)
     setLastMoveTime(now)
+    setLastMovePosition(position)
+    
+    // Clear any existing timeout
+    if (touchLockTimeout) {
+      clearTimeout(touchLockTimeout)
+    }
+    
     // Make the move
     makeMove(position)
+    
+    // Set a longer protection timeout (1 second total)
+    const timeout = setTimeout(() => {
+      moveInProgressRef.current = false
+      setIsProcessingMove(false)
+      console.log('🔓 Move protection cleared')
+    }, 1000)
+    
+    setTouchLockTimeout(timeout)
   }
 
   const makeMove = async (position: number, isBotMove: boolean = false) => {
     if (!game || !player) return
 
+    // Additional safety check - if cell is already occupied, abort immediately
+    if (game.board[position]) {
+      console.log('🛑 makeMove aborted - position', position, 'already occupied with:', game.board[position])
+      return
+    }
+
     // Enforce turn-based play: Only allow the current player to move
     const isMyTurn = (player.id === game.player1.id && game.currentPlayer === 'X') || 
                      (game.player2 && player.id === game.player2.id && game.currentPlayer === 'O')
     
-    // For bot moves, skip the turn validation
-    if (!isBotMove && !isMyTurn) {
+    // DEBUG: Log turn validation details
+    console.log('🎯 TURN VALIDATION:', {
+      playerId: player.id,
+      player1Id: game.player1.id,
+      player2Id: game.player2?.id,
+      currentPlayer: game.currentPlayer,
+      isPlayer1: player.id === game.player1.id,
+      isPlayer2: game.player2 && player.id === game.player2.id,
+      isMyTurn,
+      isBotMove,
+      isBotGame
+    })
+    
+    // Check if either player is a bot (more flexible detection)
+    const hasBot = (game.player1.id.startsWith('bot_')) || (game.player2?.id.startsWith('bot_'))
+    
+    console.log('🤖 BOT DETECTION:', {
+      hasBot,
+      isBotGame,
+      player1IsBot: game.player1.id.startsWith('bot_'),
+      player2IsBot: game.player2?.id.startsWith('bot_')
+    })
+    
+    // For games with bots, allow human player more flexibility
+    if (hasBot && !isBotMove) {
+      const isBotTurn = (game.currentPlayer === 'X' && game.player1.id.startsWith('bot_')) ||
+                        (game.currentPlayer === 'O' && game.player2?.id.startsWith('bot_'))
+      if (isBotTurn) {
+        console.log('🤖 BOT\'S TURN - Human move blocked')
+        return
+      }
+      console.log('✅ Human can move in bot game')
+    }
+    // For pure multiplayer games, enforce strict turn-based play
+    else if (!hasBot && !isBotMove && !isMyTurn) {
+      console.log('❌ MOVE REJECTED - Not your turn in multiplayer game!')
       return
     }
 
@@ -1480,6 +1602,7 @@ export default function Home() {
       // Handle bot game locally
       const newBoard = [...game.board]
       newBoard[position] = game.currentPlayer
+      console.log('🎮 Bot game move:', position, '=', game.currentPlayer, 'Board after:', newBoard[position])
       
       // Check for win - 6x6 board with 4-in-a-row
       const winningCombinations: number[][] = []
@@ -1737,10 +1860,13 @@ export default function Home() {
         })
 
         const data = await response.json()
+        console.log('🌐 API move response:', data)
 
         if (data.success) {
+          console.log('✅ Move successful, updating game state:', data.game)
           setGame(data.game)
         } else {
+          console.log('❌ Move failed:', data.error)
           setError(data.error)
         }
       } catch (error) {
@@ -1810,11 +1936,13 @@ export default function Home() {
           </div>
 
           <div className="space-y-4">
-            {/* Privy Authentication */}
-            <PrivyAuth 
-              onAuthenticated={handlePrivyAuthenticated}
-              onLogout={handlePrivyLogout}
-            />
+            {/* Privy Authentication - Hide when username setup is showing */}
+            {!showUsernameSetup && (
+              <PrivyAuth 
+                onAuthenticated={handlePrivyAuthenticated}
+                onLogout={handlePrivyLogout}
+              />
+            )}
           </div>
 
           {/* Username Setup Modal */}
@@ -2325,9 +2453,9 @@ export default function Home() {
           {/* Turn Timer Display */}
           {isTimerActive && !game.gameOver && gameMode === 'multiplayer' && (
             <div className="mb-4 flex justify-center px-4">
-              <div className="relative">
+              <div className="relative w-80"> {/* Fixed width container */}
                 {/* Compact timer container */}
-                <div className={`relative bg-gradient-to-r from-black/50 via-black/30 to-black/20 backdrop-blur-xl border border-white/25 rounded-2xl px-6 py-3 flex items-center space-x-4 shadow-2xl transition-all duration-300 ${
+                <div className={`relative bg-gradient-to-r from-black/50 via-black/30 to-black/20 backdrop-blur-xl border border-white/25 rounded-2xl px-6 py-3 flex items-center justify-between shadow-2xl transition-all duration-300 ${
                   currentTurnPlayer === 'X' 
                     ? 'shadow-cyan-500/25 border-cyan-400/30' 
                     : 'shadow-pink-500/25 border-pink-400/30'
@@ -2336,14 +2464,14 @@ export default function Home() {
                 }`}>
                   
                   {/* Player info - more compact */}
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 flex-1">
                     <div className={`w-2 h-2 rounded-full animate-pulse ${
                       currentTurnPlayer === 'X' ? 'bg-cyan-400' : 'bg-pink-400'
                     }`} />
                     <div className="flex items-center space-x-2">
                       <span className={`text-sm font-semibold ${
                         currentTurnPlayer === 'X' ? 'text-cyan-100' : 'text-pink-100'
-                      }`}>
+                      } truncate max-w-32`}>
                         {currentTurnPlayer === 'X' ? game.player1.name : game.player2?.name || 'Player 2'}
                       </span>
                       <span className="text-xs text-white/50 font-medium">Your Turn</span>
@@ -2384,9 +2512,9 @@ export default function Home() {
                       />
                     </svg>
                     
-                    {/* Timer number - smaller */}
+                    {/* Timer number - smaller with fixed width */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className={`text-lg font-bold transition-all duration-300 drop-shadow-lg ${
+                      <div className={`text-lg font-bold font-mono transition-all duration-300 drop-shadow-lg w-6 text-center ${
                         turnTimeLeft <= 2 
                           ? 'text-red-400 animate-bounce drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]' 
                           : turnTimeLeft <= 3
@@ -2408,9 +2536,9 @@ export default function Home() {
           {!isTimerActive && gameMode === 'multiplayer' && game && !game.gameOver && 
            (game.player2 || isBotGame) && (
             <div className="mb-4 flex justify-center px-4">
-              <div className="relative">
+              <div className="relative w-80"> {/* Fixed width container */}
                 {/* Compact turn indicator container */}
-                <div className={`relative bg-gradient-to-r from-black/50 via-black/30 to-black/20 backdrop-blur-xl border border-white/25 rounded-2xl px-6 py-3 flex items-center space-x-3 shadow-lg transition-all duration-300 hover:scale-105 ${
+                <div className={`relative bg-gradient-to-r from-black/50 via-black/30 to-black/20 backdrop-blur-xl border border-white/25 rounded-2xl px-6 py-3 flex items-center justify-center space-x-3 shadow-lg transition-all duration-300 hover:scale-105 ${
                   game.currentPlayer === 'X' 
                     ? 'border-cyan-400/30 shadow-cyan-500/20' 
                     : 'border-pink-400/30 shadow-pink-500/20'
@@ -2434,15 +2562,14 @@ export default function Home() {
           )}
 
           {/* Game Board - 6x6 */}
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4 flex justify-center px-4">
             <div
-              className="grid mx-auto bg-black/20 p-2 rounded-xl border border-white/30 select-none"
+              className="grid bg-black/20 p-4 rounded-xl border border-white/30 select-none"
               style={{
-                gridTemplateColumns: 'repeat(6, 1fr)',
-                gridTemplateRows: 'repeat(6, 1fr)',
-                gap: '4px',
-                width: '380px',
-                height: '380px',
+                gridTemplateColumns: 'repeat(6, 56px)',
+                gridTemplateRows: 'repeat(6, 56px)',
+                gap: '3px',
+                width: 'fit-content',
                 touchAction: 'manipulation',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
@@ -2451,18 +2578,39 @@ export default function Home() {
               }}
 
             >
-              {game.board.map((cell, index) => (
+              {game.board.map((cell, index) => {
+                // Debug logging for cell values
+                if (cell) {
+                  console.log(`🔍 Cell ${index}: "${cell}" (type: ${typeof cell})`)
+                }
+                return (
                 <motion.button
                   key={index}
                   data-position={index}
                   onPointerDown={(e) => {
                     // Don't call preventDefault() to avoid passive listener errors
                     e.stopPropagation()
-                    // Only handle primary pointer (avoid multi-touch issues)
-                    if (e.isPrimary) {
-                      console.log('🎯 Cell', index, 'touched (', e.pointerType, ')')
-                      handleCellInteraction(index)
+                    
+                    // Multiple protection layers
+                    if (!e.isPrimary) {
+                      console.log('🚫 Non-primary pointer ignored')
+                      return
                     }
+                    
+                    if (moveInProgressRef.current || isProcessingMove) {
+                      console.log('🚫 Touch BLOCKED - move in progress')
+                      return
+                    }
+                    
+                    // Rate limiting - only allow one touch per 100ms globally
+                    const now = Date.now()
+                    if (now - lastMoveTime < 100) {
+                      console.log('🚫 Touch rate limited (100ms)')
+                      return
+                    }
+                    
+                    console.log('🎯 Cell', index, 'touched (', e.pointerType, ')')
+                    handleCellInteraction(index)
                   }}
                   disabled={!!cell || game.gameOver || (!isBotGame && !game.player2) || 
                     // Turn enforcement: disable if it's not the current player's turn
@@ -2478,10 +2626,8 @@ export default function Home() {
                     "bg-white/15"
                   )}
                   style={{
-                    minHeight: '58px',
-                    minWidth: '58px',
-                    height: '58px',
-                    width: '58px',
+                    width: '56px',
+                    height: '56px',
                     touchAction: 'none',
                     WebkitTapHighlightColor: 'transparent',
                     userSelect: 'none',
@@ -2489,7 +2635,7 @@ export default function Home() {
                     msUserSelect: 'none',
                     cursor: 'pointer',
                     border: '2px solid transparent',
-                    fontSize: '24px',
+                    fontSize: '22px',
                     pointerEvents: 'auto'
                   }}
                 >
@@ -2511,7 +2657,14 @@ export default function Home() {
                           src="/b.png"
                           alt="X"
                           fill
+                          sizes="48px"
                           className="object-contain"
+                          onError={(e) => {
+                            console.log('❌ X image failed to load:', e)
+                          }}
+                          onLoad={() => {
+                            console.log('✅ X image loaded successfully')
+                          }}
                         />
                       </div>
                     </motion.div>
@@ -2534,13 +2687,15 @@ export default function Home() {
                           src="/cb.png"
                           alt="O"
                           fill
+                          sizes="48px"
                           className="object-contain rounded-full"
                         />
                       </div>
                     </motion.div>
                   )}
                 </motion.button>
-              ))}
+                )
+              })}
             </div>
           </div>
 
@@ -2572,10 +2727,7 @@ export default function Home() {
                 onClose={() => {
                   setShowVictoryPopup(false)
                   setVictoryData(null)
-                  // Auto-restart game after victory
-                  setTimeout(() => {
-                    resetMultiplayerGame()
-                  }, 500)
+                  // Remove auto-restart - let user choose when to play again
                 }}
               />
             )}
@@ -2674,8 +2826,8 @@ export default function Home() {
   return null
 }
 
-// Helper function to copy victory card as image
-const copyVictoryCardAsImage = async (cardId: string) => {
+// Simple and working victory card copy function
+const copyVictoryCardAsImage = async (cardId: string): Promise<boolean> => {
   try {
     const element = document.getElementById(cardId)
     if (!element) {
@@ -2686,7 +2838,8 @@ const copyVictoryCardAsImage = async (cardId: string) => {
     // Check if we're on mobile
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
-    // Create a canvas to draw the element
+    // Use html2canvas alternative - manual canvas drawing
+    const rect = element.getBoundingClientRect()
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) {
@@ -2695,203 +2848,104 @@ const copyVictoryCardAsImage = async (cardId: string) => {
     }
 
     // Set canvas size
-    canvas.width = 400
-    canvas.height = 500
+    canvas.width = rect.width
+    canvas.height = rect.height
     
-    // Get the background image from the element
-    const bgImage = window.getComputedStyle(element).backgroundImage
-    const imageUrl = bgImage.match(/url\(["']?([^"')]+)["']?\)/)?.[1]
+    // Create a simple screenshot using canvas
+    // This captures the element by drawing it manually
+    ctx.fillStyle = '#1f2937' // Dark background
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
     
-    if (imageUrl) {
-      // Load and draw the background image
-      const img = document.createElement('img')
-      img.crossOrigin = 'anonymous'
-      
-      return new Promise<boolean>((resolve) => {
-        img.onload = async () => {
-          // Draw background image
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-          
-          // Add overlay gradient
-          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
-          gradient.addColorStop(0, 'rgba(0,0,0,0)')
-          gradient.addColorStop(0.6, 'rgba(0,0,0,0.5)')
-          gradient.addColorStop(1, 'rgba(0,0,0,0.9)')
-          ctx.fillStyle = gradient
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-          // Add border
-          ctx.strokeStyle = '#fbbf24'
-          ctx.lineWidth = 4
-          ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20)
-
-          // Add title
-          ctx.fillStyle = '#fbbf24'
-          ctx.font = 'bold 32px Arial'
-          ctx.textAlign = 'center'
-          ctx.shadowColor = 'rgba(0,0,0,0.8)'
-          ctx.shadowBlur = 10
-          
-          const titleText = element.querySelector('h1')?.textContent || 'GAME COMPLETE'
-          ctx.fillText(titleText, canvas.width / 2, 80)
-          
-          // Add subtitle
-          ctx.fillStyle = '#ffffff'
-          ctx.font = '16px Arial'
-          ctx.shadowBlur = 5
-          const subtitleText = element.querySelector('p')?.textContent || 'Thanks for playing!'
-          ctx.fillText(subtitleText, canvas.width / 2, 120)
-          
-          // Add game info
-          ctx.fillStyle = '#e5e7eb'
-          ctx.font = '14px Arial'
-          ctx.fillText('Tic Tac Toe Victory Card', canvas.width / 2, canvas.height - 30)
-
-          // Convert to blob and try clipboard
-          canvas.toBlob(async (blob: Blob | null) => {
-            if (!blob) {
-              console.error('Failed to create image blob')
-              resolve(false)
-              return
-            }
-
-            // Try different clipboard methods based on browser support
-            let success = false
-            
-            // Method 1: Modern Clipboard API (works on desktop and some mobile browsers)
-            if (navigator.clipboard && window.ClipboardItem && !isMobile) {
-              try {
-                await navigator.clipboard.write([
-                  new ClipboardItem({
-                    'image/png': blob
-                  })
-                ])
-                console.log('Victory card copied to clipboard!')
-                success = true
-              } catch (error) {
-                console.log('Modern clipboard API failed, trying fallback...', error)
-              }
-            }
-            
-            // Method 2: Mobile-friendly approach - create a shareable link
-            if (!success && isMobile) {
-              try {
-                // Check if Web Share API is available (mobile browsers)
-                if (navigator.share) {
-                  const file = new File([blob], 'victory-card.png', { type: 'image/png' })
-                  await navigator.share({
-                    title: 'Tic Tac Toe Victory Card',
-                    text: 'Check out my victory!',
-                    files: [file]
-                  })
-                  success = true
-                  console.log('Victory card shared successfully!')
-                } else {
-                  // Fallback: download for mobile
-                  const url = URL.createObjectURL(blob)
-                  const a = document.createElement('a')
-                  a.href = url
-                  a.download = 'victory-card.png'
-                  a.style.display = 'none'
-                  document.body.appendChild(a)
-                  a.click()
-                  document.body.removeChild(a)
-                  URL.revokeObjectURL(url)
-                  success = true
-                  console.log('Victory card downloaded!')
-                }
-              } catch (error) {
-                console.log('Mobile share failed, downloading...', error)
-              }
-            }
-            
-            // Method 3: Final fallback - download
-            if (!success) {
-              try {
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'victory-card.png'
-                a.style.display = 'none'
-                document.body.appendChild(a)
-                a.click()
-                document.body.removeChild(a)
-                URL.revokeObjectURL(url)
-                success = true
-                console.log('Victory card downloaded as fallback!')
-              } catch (error) {
-                console.error('All methods failed:', error)
-              }
-            }
-            
-            resolve(success)
-          }, 'image/png', 1.0)
-        }
-        
-        img.onerror = () => {
-          console.error('Failed to load background image')
+    // Add a simple representation of the victory card
+    // Get text content from the element
+    const titleElement = element.querySelector('h1')
+    const subtitleElement = element.querySelector('p')
+    
+    const title = titleElement?.textContent || 'GAME COMPLETE'
+    const subtitle = subtitleElement?.textContent || 'Thanks for playing!'
+    
+    // Draw title
+    ctx.fillStyle = '#fbbf24' // Gold color
+    ctx.font = 'bold 24px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText(title, canvas.width / 2, 60)
+    
+    // Draw subtitle
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '16px Arial'
+    ctx.fillText(subtitle, canvas.width / 2, 100)
+    
+    // Draw border
+    ctx.strokeStyle = '#fbbf24'
+    ctx.lineWidth = 3
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20)
+    
+    // Convert to blob
+    return new Promise<boolean>((resolve) => {
+      canvas.toBlob(async (blob: Blob | null) => {
+        if (!blob) {
+          console.error('Failed to create image blob')
           resolve(false)
+          return
         }
-        
-        img.src = imageUrl
-      })
-    } else {
-      // Fallback without background image
-      ctx.fillStyle = '#1f2937'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      
-      const titleText = element.querySelector('h1')?.textContent || 'GAME COMPLETE'
-      ctx.fillStyle = '#fbbf24'
-      ctx.font = 'bold 32px Arial'
-      ctx.textAlign = 'center'
-      ctx.fillText(titleText, canvas.width / 2, 80)
-      
-      return new Promise<boolean>((resolve) => {
-        canvas.toBlob(async (blob: Blob | null) => {
-          if (!blob) {
-            resolve(false)
-            return
-          }
-          
-          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-          
-          if (isMobile && navigator.share) {
-            try {
-              const file = new File([blob], 'victory-card.png', { type: 'image/png' })
-              await navigator.share({
-                title: 'Tic Tac Toe Victory Card',
-                files: [file]
-              })
-              resolve(true)
-              return
-            } catch (error) {
-              console.log('Share failed, downloading...', error)
-            }
-          }
-          
+
+        let success = false
+
+        // Try different methods based on device
+        if (isMobile && navigator.share) {
           try {
-            if (navigator.clipboard && window.ClipboardItem && !isMobile) {
-              await navigator.clipboard.write([
-                new ClipboardItem({ 'image/png': blob })
-              ])
-            } else {
-              throw new Error('Clipboard not available, downloading')
-            }
-            resolve(true)
+            const file = new File([blob], 'victory-card.png', { type: 'image/png' })
+            await navigator.share({
+              title: 'Tic Tac Toe Victory Card',
+              text: 'Check out my game result!',
+              files: [file]
+            })
+            success = true
+            console.log('Victory card shared successfully!')
           } catch (error) {
+            console.log('Share failed, trying clipboard...', error)
+          }
+        }
+
+        // Try clipboard API for desktop
+        if (!success && navigator.clipboard && window.ClipboardItem) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'image/png': blob
+              })
+            ])
+            success = true
+            console.log('Victory card copied to clipboard!')
+          } catch (error) {
+            console.log('Clipboard failed, downloading...', error)
+          }
+        }
+
+        // Fallback: download the image
+        if (!success) {
+          try {
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
             a.download = 'victory-card.png'
+            a.style.display = 'none'
+            document.body.appendChild(a)
             a.click()
+            document.body.removeChild(a)
             URL.revokeObjectURL(url)
-            resolve(true)
+            success = true
+            console.log('Victory card downloaded!')
+          } catch (error) {
+            console.error('Download failed:', error)
           }
-        }, 'image/png', 1.0)
-      })
-    }
+        }
+
+        resolve(success)
+      }, 'image/png')
+    })
   } catch (error) {
-    console.error('Error capturing victory card:', error)
+    console.error('Error copying victory card:', error)
     return false
   }
 }
@@ -2979,7 +3033,6 @@ function VictoryPopup({
       exit={{ opacity: 0 }}
       transition={{ duration: isMobile ? 0.2 : 0.3 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
     >
       <motion.div
         id="victory-popup"
@@ -2992,7 +3045,6 @@ function VictoryPopup({
         }}
         className={`relative w-full max-w-sm h-[500px] bg-cover bg-center rounded-2xl shadow-2xl overflow-hidden border-2 ${getCardBorderColor()}`}
         style={{ backgroundImage: getBackgroundImage() }}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
         

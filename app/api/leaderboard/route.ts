@@ -39,6 +39,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Wallet address and name required' }, { status: 400 })
     }
 
+    // Validate wallet address format (basic validation)
+    if (!walletAddress.startsWith('0x') || walletAddress.length !== 42) {
+      return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 })
+    }
+
+    // Validate name
+    if (name.trim().length < 4 || name.trim().length > 20) {
+      return NextResponse.json({ error: 'Name must be between 4 and 20 characters' }, { status: 400 })
+    }
+
     // Check if database is available
     if (!supabaseAdmin) {
       console.warn('Database not configured - using fallback mode')

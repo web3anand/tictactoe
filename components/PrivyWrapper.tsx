@@ -29,40 +29,7 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
   return (
     <PrivyProvider 
       appId={appId}
-      config={{
-        appearance: {
-          accentColor: "#40d46dff", // Base green/blue
-          theme: "dark",
-          showWalletLoginFirst: false, // Show social logins first
-          logo: "/B T.svg",
-        },
-        // Put farcaster first to enable Base app integration  
-        loginMethods: ["farcaster", "twitter", "telegram", "wallet"],
-        fundingMethodConfig: {
-          moonpay: {
-            useSandbox: true
-          }
-        },
-        embeddedWallets: {
-          showWalletUIs: true,
-          ethereum: {
-            createOnLogin: "users-without-wallets"
-          }
-        },
-        // Enable Coinbase Wallet for Base app integration
-        externalWallets: {
-          coinbaseWallet: {
-            config: {
-              appName: "Basetok"
-            }
-          }
-        },
-        mfa: {
-          noPromptOnMfaRequired: false
-        },
-        supportedChains: [base],
-        defaultChain: base
-      }}
+      config={privyConfig}
     >
       {children}
     </PrivyProvider>

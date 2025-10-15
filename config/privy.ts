@@ -5,13 +5,20 @@ export const privyConfig: PrivyClientConfig = {
   // Appearance customization
   appearance: {
     theme: 'dark',
-    accentColor: '#3b82f6',
-    logo: '/icon.svg',
-    showWalletLoginFirst: false,
+    accentColor: '#40d46dff', // Base green/blue
+    logo: '/B T.svg',
+    showWalletLoginFirst: false, // Show social logins first
   },
   
-  // Authentication methods
-  loginMethods: ['email', 'wallet'],
+  // Authentication methods - Put farcaster first to enable Base app integration
+  loginMethods: ['farcaster', 'twitter', 'telegram', 'email', 'wallet'],
+  
+  // Funding configuration
+  fundingMethodConfig: {
+    moonpay: {
+      useSandbox: true
+    }
+  },
   
   // Embedded wallet configuration
   embeddedWallets: {
@@ -19,6 +26,20 @@ export const privyConfig: PrivyClientConfig = {
       createOnLogin: 'users-without-wallets',
     },
     showWalletUIs: true,
+  },
+  
+  // Enable Coinbase Wallet for Base app integration
+  externalWallets: {
+    coinbaseWallet: {
+      config: {
+        appName: 'Basetok'
+      }
+    }
+  },
+  
+  // MFA configuration
+  mfa: {
+    noPromptOnMfaRequired: false
   },
   
   // Supported chains
